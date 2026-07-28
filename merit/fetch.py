@@ -39,8 +39,9 @@ def fetch_posting(url: str, timeout: int = 20) -> str:
     scheme = urlparse(url).scheme
     if scheme not in ("http", "https"):
         raise ValueError(f"unsupported scheme {scheme!r}: only http/https allowed")
-    req = urllib.request.Request(url, headers={"User-Agent": "merit/0.1"})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    # S310 suppressed on both calls: the scheme allowlist above is the control.
+    req = urllib.request.Request(url, headers={"User-Agent": "merit/0.1"})  # noqa: S310
+    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
         body = resp.read(MAX_BYTES + 1)
     if len(body) > MAX_BYTES:
         raise ValueError(f"response too large: over {MAX_BYTES} bytes")
