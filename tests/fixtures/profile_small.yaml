@@ -1,0 +1,10 @@
+skills:
+  - id: fastapi
+    name: FastAPI
+    status: strong
+    evidence: ["api: 40 routes"]
+  - id: pytorch
+    name: PyTorch
+    status: gap
+aliases:
+  "REST APIs": fastapi
