@@ -22,6 +22,12 @@ merit = "merit.cli:app"
 [tool.ruff]
 line-length = 100
 
+[tool.ruff.lint]
+extend-select = ["S", "I", "ISC", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
 [tool.pytest.ini_options]
 markers = ["provider: opt-in tests that hit a real LLM provider"]
 addopts = "-m 'not provider'"
