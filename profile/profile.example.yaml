@@ -1,0 +1,11 @@
+skills:
+  - id: fastapi
+    name: FastAPI
+    status: strong
+    evidence:
+      - "example-api: 40-route production service"
+  - id: langgraph
+    name: LangGraph
+    status: gap
+aliases:
+  "REST APIs": fastapi
