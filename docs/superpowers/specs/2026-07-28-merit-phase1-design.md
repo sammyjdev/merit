@@ -56,13 +56,17 @@ Three components with hard boundaries:
 ```
 
 - **CLI shell** (`merit/cli.py`): argument parsing, file/URL loading, printing,
-  exit codes. Contains no LLM logic. Anything the CLI does, a future FastAPI
-  router must be able to do by calling the same graph entrypoint.
+  exit codes. Contains no LLM logic. URL input is fetched by a small adapter in
+  the shell (plain HTTP fetch + HTML-to-text); no `langchain-community` loader
+  dependency for a single URL. Anything the CLI does, a future FastAPI router
+  must be able to do by calling the same graph entrypoint.
 - **Graph core** (`merit/graph/`): a LangGraph `StateGraph` over a typed state.
-  Pure with respect to IO: it receives posting text and a loaded profile,
-  and returns state. It does not read files, print, or know about the CLI.
-  This boundary is what makes phase 2 (service) and phase 3 (benchmark)
-  possible without rework.
+  Edge-IO-free: it receives posting text and a loaded profile, and returns
+  state. It does not read files, print, fetch URLs, or know about the CLI; the
+  chat models are its only external calls and they are injected as
+  dependencies (not stored in checkpointed state), so tests swap them for
+  fakes. This boundary is what makes phase 2 (service) and phase 3
+  (benchmark) possible without rework.
 - **Profile store** (`merit/profile.py` + `profile/profile.yaml`): the
   candidate's skills inventory with evidence pointers. Loaded once per run,
   validated with Pydantic, never mutated by the graph.
@@ -71,9 +75,12 @@ Three components with hard boundaries:
 
 ## The graph
 
-State (Pydantic): `posting_text`, `posting_meta`, `demands` (extracted skills
-with seniority/priority), `verdicts` (per-demand match results), `report_md`,
-`approved` (bool), `narrative_md`.
+State: a `TypedDict` (the recommended `StateGraph` schema) holding
+`posting_text`, `posting_meta`, `demands`, `verdicts`, `report_md`,
+`approved`, `narrative_md`, and `profile_hash`. Pydantic stays where it earns
+its cost: the `Profile`, `Demand`, and `Verdict` models and every LLM
+structured output. Models and other dependencies are injected at graph build
+time and never live in the checkpointed state.
 
 Nodes:
 
@@ -92,14 +99,29 @@ Nodes:
    evidence pointer (profile entry id, and claim id when the profile entry
    carries one), one-line justification.
 4. `report`: render the fit report markdown from the verdicts. Deterministic
-   template, no LLM. Ends with `interrupt()` so the run pauses for approval.
-5. `narrative`: only reached after the user resumes with approval. Generates
-   tailored CV bullets and a short intro note, grounded exclusively in
-   profile evidence (the system prompt forbids claiming anything without an
-   evidence pointer - the honesty rule as a hard constraint).
+   template, no LLM.
+5. `approval`: the human gate, with the full contract spelled out:
+   `interrupt({"report_md": ..., "question": "Approve narrative generation?"})`
+   with a JSON-serializable payload; the resume value must be a bool (anything
+   else re-interrupts with an error note); `True` routes to `narrative` and
+   `False` ends the graph, via `Command(update={"approved": ...}, goto=...)`.
+   Resuming uses `graph.invoke(Command(resume=True), config={"configurable":
+   {"thread_id": ...}})` with the same thread config. A resumed node restarts
+   from its top, so nothing with external effect happens before the
+   `interrupt()` call.
+6. `narrative`: only reached with approval. Generates tailored CV bullets and
+   a short intro note, grounded exclusively in profile evidence (the system
+   prompt forbids claiming anything without an evidence pointer - the honesty
+   rule as a hard constraint).
 
-Checkpointing: `SqliteSaver` keyed by a thread id derived from the posting, so
-`merit resume <id>` continues a paused run (typically at the approval gate).
+Checkpointing: `SqliteSaver` (package `langgraph-checkpoint-sqlite`). The
+thread id is a UUID generated on the first run, persisted and printed by the
+CLI so `merit resume <id>` continues a paused run (typically at the approval
+gate); an optional `--session-id` overrides it. Content-derived ids are
+explicitly rejected: two runs of the same posting must not collide. The
+state carries `profile_hash` (sha256 of the loaded profile file) so a resume
+after approval provably uses the same evidence the report was built from; a
+hash mismatch aborts with a clear error instead of silently mixing profiles.
 
 ## Profile schema
 
@@ -132,28 +154,51 @@ the golden 12-role corpus lives locally under `corpus/` (gitignored).
 
 ## Models and observability
 
-- Chat model through LangChain's OpenAI-compatible client. Default endpoint
-  DeepInfra, free-first per house policy; all of endpoint, key, and model name
-  come from env (`MERIT_MODEL`, `MERIT_API_BASE`, `MERIT_API_KEY`).
+- Chat model: `ChatOpenAI` from `langchain-openai`, pointed at an OpenAI-
+  compatible endpoint. Default DeepInfra, free-first per house policy;
+  `MERIT_MODEL` maps to `model`, `MERIT_API_BASE` to `base_url`,
+  `MERIT_API_KEY` to `api_key`.
+- Structured output method is explicit, never implicit: `extract` and the LLM
+  stage of `match` use `.with_structured_output(..., method="json_schema")`
+  (DeepInfra's recommended mode; support is per-model, so the opt-in
+  integration test asserts the configured model supports it).
 - Temperature 0 for `extract` and `match` (judgments), default for
   `narrative` (writing).
-- LangSmith: enabled purely by the standard `LANGSMITH_*` env vars; the code
-  contains no LangSmith-specific logic. The 12-role corpus is registered as a
-  LangSmith dataset in v0.2.
+- LangSmith: opt-in, enabled purely by the standard env vars
+  (`LANGSMITH_TRACING`, `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT`, and
+  `LANGSMITH_ENDPOINT`/`LANGSMITH_WORKSPACE_ID` when applicable); the code
+  contains no LangSmith-specific logic. Postings and profile are personal
+  data, so the README documents `LANGSMITH_HIDE_INPUTS=true` /
+  `LANGSMITH_HIDE_OUTPUTS=true` for runs that must not upload content. The
+  12-role corpus is registered as a LangSmith dataset in v0.2.
 
 ## Testing
 
-TDD throughout, per house rules.
+TDD throughout, per house rules. Two strictly separate categories:
 
-- Node-level tests with LangChain fake chat models (no network). `ingest`,
-  `report`, and the alias stage of `match` are deterministic and tested
-  directly.
+**Unit and graph tests (no network, run in CI):**
+
+- `ingest`, `report`, and the alias stage of `match` are deterministic and
+  tested directly.
+- Text-generating nodes (`narrative`) use `FakeListChatModel`.
+- Structured-output nodes (`extract`, LLM stage of `match`) do NOT fake
+  `ChatOpenAI` internals: the fakes do not implement
+  `with_structured_output()`. Instead, each node receives an injected
+  runnable and tests pass a fake that returns the Pydantic object directly.
 - Graph-level test: full run on a synthetic posting + synthetic profile with
-  a scripted fake model, asserting the interrupt fires before `narrative`.
-- Golden regression (local, marked, skipped when corpus absent): replay the
-  12-role corpus against the real profile and assert the human-validated
-  verdicts from 2026-07-28 (FastAPI covered, LlamaIndex covered,
-  LangChain/LangGraph gap, classic ML gap...).
+  scripted fakes, asserting the interrupt fires before `narrative`, that a
+  `False` resume ends the run, and that a profile-hash mismatch on resume
+  aborts.
+
+**Provider evaluation (opt-in, marked, real network):**
+
+- Golden regression against DeepInfra: replay the 12-role corpus with the
+  real profile and assert the human-validated verdicts from 2026-07-28
+  (FastAPI covered, LlamaIndex covered, LangChain/LangGraph gap, classic ML
+  gap...). This is an evaluation, not a unit test: it is skipped when the
+  corpus or key is absent, and asserts verdict agreement, not exact-string
+  equality. It also asserts the configured model supports
+  `method="json_schema"`.
 
 ## Decisions
 
@@ -162,8 +207,10 @@ TDD throughout, per house rules.
 - **D2 LangGraph StateGraph with SqliteSaver and interrupt.** These are the
   idioms that distinguish LangGraph from plain chains; the approval gate is a
   real product need, not a demo.
-- **D3 Graph core is IO-pure.** Enables phase 2 (mount in FastAPI) and
-  phase 3 (benchmark harness drives the graph directly) without rework.
+- **D3 Graph core is edge-IO-free with injected models.** No file, terminal,
+  or inbound-HTTP IO inside the graph; chat models are injected dependencies.
+  Enables phase 2 (mount in FastAPI) and phase 3 (benchmark harness drives
+  the graph directly) without rework, and makes every node testable offline.
 - **D4 Deterministic-first matching.** The alias table resolves known names
   before any LLM call: cheaper, reproducible, and it shrinks the surface the
   golden regression has to trust an LLM for.
@@ -176,7 +223,7 @@ TDD throughout, per house rules.
 
 ## Roadmap
 
-- **v0.1 (this spec):** CLI agent, 5-node graph, checkpointing, approval
+- **v0.1 (this spec):** CLI agent, 6-node graph, checkpointing, approval
   gate, LangSmith tracing, golden regression.
 - **v0.2 - evals:** 12-role corpus as a LangSmith dataset; LLM-as-judge
   scoring of report quality (GNOMON bridge); prompt iteration against the
