@@ -1,0 +1,35 @@
+# Onboards merit to the global agentic loop (~/.claude/agents/forge.md).
+
+# wiring
+repo_slug: sammyjdev/merit
+default_branch: master
+gate_cmd: ".venv/bin/python -m pytest -q -p no:cacheprovider && .venv/bin/ruff check merit tests"
+setup_cmd: "python3 -m venv .venv && .venv/bin/pip install -e \".[dev]\""
+labels:
+  ready: agent:ready
+  blocked: agent:blocked
+
+# posture (public showcase repo; personal data stays out of git by design)
+posture: public
+# risk_areas ARM the classifier floor: keyword match in issue text forces
+# effective_tier=Legendary. Keywords mirror the spec's Security section.
+risk_areas:
+  - prompt-injection: [prompt injection, untrusted posting, verdict post-validation, D8]
+  - fetch: [SSRF, urlopen, fetch_posting, scheme allowlist, S310]
+  - secrets: [gitleaks, credential, api key, .env, LANGSMITH_API_KEY]
+  - personal-data: [profile.yaml, corpus, recruiter, LANGSMITH_HIDE]
+quality_rubric:
+  testability: true
+  scalability: true
+  progression: true
+
+cross_review: true
+
+# Notes for the loop operator (merit-specific):
+# - The package is installed EDITABLE against the main checkout, so inside a
+#   worktree run tests with PYTHONPATH=$PWD or imports resolve to the main
+#   checkout's files (verified the hard way on 2026-07-28, Wave 1).
+# - Unit/graph tests are offline by definition; anything hitting a provider
+#   is @pytest.mark.provider and deselected by default (pyproject addopts).
+# - Interfaces blocks in docs/superpowers/plans/* are contracts: when a plan
+#   test contradicts one, fix the test, never the contract.
