@@ -3,6 +3,9 @@
 import urllib.request
 from html.parser import HTMLParser
 from typing import ClassVar
+from urllib.parse import urlparse
+
+MAX_BYTES = 2_000_000
 
 
 class _TextExtractor(HTMLParser):
@@ -33,6 +36,12 @@ def html_to_text(html: str) -> str:
 
 
 def fetch_posting(url: str, timeout: int = 20) -> str:
+    scheme = urlparse(url).scheme
+    if scheme not in ("http", "https"):
+        raise ValueError(f"unsupported scheme {scheme!r}: only http/https allowed")
     req = urllib.request.Request(url, headers={"User-Agent": "merit/0.1"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return html_to_text(resp.read().decode("utf-8", errors="replace"))
+        body = resp.read(MAX_BYTES + 1)
+    if len(body) > MAX_BYTES:
+        raise ValueError(f"response too large: over {MAX_BYTES} bytes")
+    return html_to_text(body.decode("utf-8", errors="replace"))
