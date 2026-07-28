@@ -200,6 +200,31 @@ TDD throughout, per house rules. Two strictly separate categories:
   equality. It also asserts the configured model supports
   `method="json_schema"`.
 
+## Security
+
+Threat model for phase 1, in priority order:
+
+1. **Prompt injection.** The posting is untrusted input that reaches two
+   prompts. A hostile posting can instruct the judge to upgrade verdicts or
+   fabricate evidence. Structural mitigations: the deterministic alias stage
+   bypasses the LLM for known skills, and narrative only uses profile-backed
+   evidence. Hard mitigation: the match node post-validates every judged
+   verdict - a verdict is accepted only for demands actually sent in the
+   residue, and only citing evidence/claim strings that literally exist in
+   the profile; anything else is downgraded to `gap` with justification
+   `"unverifiable evidence claim rejected"`. Prompts wrap untrusted content
+   in explicit data delimiters with an instruction that delimited content is
+   data, not instructions.
+2. **SSRF / resource exhaustion on URL fetch.** `fetch_posting` validates the
+   scheme (http/https only, rejecting `file://` and friends regardless of
+   call site) and caps the response at 2 MB.
+3. **Secrets and personal data.** Secrets come from env only; `.env`,
+   `profile/profile.yaml`, `corpus/`, and `*.db` are gitignored; LangSmith
+   masking vars are documented for sensitive runs.
+4. **Supply chain / regression.** CI runs the house security gate: ruff with
+   the `S` ruleset blocking (tests get a scoped `S101` ignore), gitleaks, and
+   pip-audit, plus the offline test suite.
+
 ## Decisions
 
 - **D1 CLI-first.** The user lives in the terminal; a service adds surface
@@ -220,6 +245,11 @@ TDD throughout, per house rules. Two strictly separate categories:
   postings corpus gitignored. Example fixtures keep the repo runnable.
 - **D7 Free-provider default.** DeepInfra OpenAI-compatible endpoint, env-
   swappable, matching the house provider policy.
+- **D8 Deterministic verdict post-validation.** LLM-judged verdicts are
+  filtered by code, not trust: unknown demands dropped, unverifiable evidence
+  downgraded to gap. The LLM proposes; the code disposes.
+- **D9 House security gate in CI.** ruff `S` blocking + gitleaks + pip-audit,
+  the same standard already enforced in axon, glyph, and gnomon.
 
 ## Roadmap
 
