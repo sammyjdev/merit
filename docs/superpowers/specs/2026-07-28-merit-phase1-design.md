@@ -255,7 +255,16 @@ Threat model for phase 1, in priority order:
 
 - **v0.1 (this spec):** CLI agent, 6-node graph, checkpointing, approval
   gate, LangSmith tracing, golden regression.
-- **v0.2 - evals:** 12-role corpus as a LangSmith dataset; LLM-as-judge
+- **v0.2 - mail ingestion (repriorized 2026-07-29):** postings arrive by
+  email, never by scraping. LinkedIn's terms prohibit automated collection
+  and the account is the asset; the compliant channels are the user's own
+  inbox. Two adapters: (a) recruiter-message notification emails, which carry
+  the message text and feed the full pipeline; (b) job-alert emails, which
+  carry only title/company/link and feed a triage queue with deterministic
+  keyword prefilter (full match still requires the pasted description).
+  IMAP + app password, env-only credentials, Gmail label as the consumption
+  contract, synthetic .eml fixtures in tests.
+- **v0.25 - evals:** postings corpus as a LangSmith dataset; LLM-as-judge
   scoring of report quality (GNOMON bridge); prompt iteration against the
   dataset instead of vibes.
 - **v0.3 - service (approach C):** FastAPI layer mounting the same graph
