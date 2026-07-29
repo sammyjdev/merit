@@ -220,6 +220,29 @@ def test_recruiter_fixture_is_recognized():
     assert mail.is_recruiter_message(_parse(RECRUITER_RAW)) is True
 
 
+def _real_inmail_raw() -> bytes:
+    # Real-world shape (operational validation 2026-07-29): LinkedIn InMail
+    # notifications arrive from inmail-hit-reply@linkedin.com with the
+    # opportunity title as subject - no "sent you a message" marker.
+    return (
+        b"From: Ana Recruiter via LinkedIn <inmail-hit-reply@linkedin.com>\r\n"
+        b"Subject: Remote Back-end Engineer Opportunity | Kotlin/JVM\r\n"
+        b"Date: Tue, 28 Jul 2026 09:14:00 +0000\r\n"
+        b"Message-ID: <inmail-0001@lva1-app.prod.linkedin.com>\r\n"
+        b"Content-Type: text/plain; charset=utf-8\r\n\r\n"
+        b"Hi Sammy, I have a role that matches your background.\r\n"
+    )
+
+
+def test_real_inmail_sender_is_recognized_without_subject_marker():
+    assert mail.is_recruiter_message(_parse(_real_inmail_raw())) is True
+
+
+def test_inmail_sender_on_lookalike_domain_is_rejected():
+    raw = _real_inmail_raw().replace(b"@linkedin.com", b"@evil-linkedin.com")
+    assert mail.is_recruiter_message(_parse(raw)) is False
+
+
 def test_newsletter_is_rejected():
     assert mail.is_recruiter_message(_parse(NEWSLETTER_RAW)) is False
 
