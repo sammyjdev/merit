@@ -1,0 +1,15 @@
+From: Weekly Dev Digest <news@devdigest.example>
+To: candidate@example.invalid
+Subject: Your weekly digest: 10 links about Rust
+Date: Mon, 27 Jul 2026 08:00:00 +0000
+Message-ID: <newsletter-0001@devdigest.example>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+
+Top 10 Rust links this week.
+
+1. Async traits stabilized
+2. New borrow checker improvements
+
+Unsubscribe at any time.

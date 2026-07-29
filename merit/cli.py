@@ -10,6 +10,7 @@ from langgraph.types import Command
 
 from merit.fetch import fetch_posting
 from merit.graph.build import build_graph
+from merit.mail import INBOX_DIR, MailError, connect, fetch_messages, ingest_messages
 from merit.models import build_extractor, build_judge, build_writer
 from merit.profile import load_profile, profile_hash
 
@@ -80,3 +81,23 @@ def resume(
         typer.echo(result["narrative_md"])
     else:
         typer.echo("Rejected; session closed.")
+
+
+@app.command("ingest-mail")
+def ingest_mail(out_dir: str = typer.Option(str(INBOX_DIR), "--out-dir")):
+    try:
+        conn = connect()
+    except MailError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from None
+    try:
+        raws = fetch_messages(conn)
+    finally:
+        conn.logout()
+    ingested, skipped = ingest_messages(raws, Path(out_dir))
+    for item in ingested:
+        typer.echo(str(item.path))
+        typer.echo(f"  merit match {item.path}")
+    for reason in skipped:
+        typer.echo(reason, err=True)
+    typer.echo(f"ingested {len(ingested)}, skipped {len(skipped)}", err=True)

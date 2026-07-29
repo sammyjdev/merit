@@ -27,6 +27,7 @@ extend-select = ["S", "I", "ISC", "RUF"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101"]
+"merit/mail.py" = ["BLE001"]
 
 [tool.pytest.ini_options]
 markers = ["provider: opt-in tests that hit a real LLM provider"]
