@@ -18,6 +18,9 @@ DEFAULT_MAILBOX = "merit"
 INBOX_DIR = Path("corpus/inbox")
 RECRUITER_DOMAIN = "linkedin.com"
 RECRUITER_SUBJECT_MARKERS = ("sent you a message", "new message from", "inmail")
+# Real InMail notifications carry the opportunity title as subject (no marker);
+# their sender is stable (operational validation 2026-07-29, 218/218 messages).
+RECRUITER_SENDERS = ("inmail-hit-reply@linkedin.com",)
 SLUG_MAX = 60
 
 _SLUG_RUN = re.compile(r"[^a-z0-9]+")
@@ -80,6 +83,9 @@ def _sender_domain(msg) -> str:
 
 
 def is_recruiter_message(msg) -> bool:
+    addr = email.utils.parseaddr(str(msg["From"]))[1].lower()
+    if addr in RECRUITER_SENDERS:
+        return True
     domain = _sender_domain(msg)
     domain_ok = domain == RECRUITER_DOMAIN or domain.endswith("." + RECRUITER_DOMAIN)
     subject = str(msg["Subject"] or "").lower()
