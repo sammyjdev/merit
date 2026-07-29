@@ -1,0 +1,31 @@
+From: LinkedIn <messages-noreply@linkedin.com>
+To: candidate@example.invalid
+Subject: Alex Rivera sent you a message
+Date: Tue, 28 Jul 2026 09:14:00 +0000
+Message-ID: <recruiter-0001@mail.linkedin.com>
+MIME-Version: 1.0
+Content-Type: multipart/alternative;
+ boundary="===============6620193383865421961=="
+
+--===============6620193383865421961==
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+Hi Alex,
+
+This role directly matches your background in distributed retrieval systems.
+
+We are hiring a Senior AI Engineer to work on retrieval pipelines.
+
+Best,
+LinkedIn
+
+--===============6620193383865421961==
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+<html><body><p>Hi Alex,</p><p>We are hiring a <b>Senior AI Engineer</b> to wo=
+rk on retrieval pipelines.</p><p>Best,<br>LinkedIn</p></body></html>
+
+--===============6620193383865421961==--
