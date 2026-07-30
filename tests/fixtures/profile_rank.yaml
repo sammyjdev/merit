@@ -1,0 +1,13 @@
+skills:
+  - id: fastapi
+    name: FastAPI
+    status: strong
+  - id: llm-eval
+    name: "MCP (Model Context Protocol)"
+    status: partial
+  - id: pytorch
+    name: PyTorch
+    status: gap
+aliases:
+  "REST APIs": fastapi
+  "Model Context Protocol": llm-eval

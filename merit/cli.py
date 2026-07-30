@@ -13,6 +13,8 @@ from merit.graph.build import build_graph
 from merit.mail import INBOX_DIR, MailError, connect, fetch_messages, ingest_messages
 from merit.models import build_extractor, build_judge, build_writer
 from merit.profile import load_profile, profile_hash
+from merit.rank import DEFAULT_TOP, rank_dir
+from merit.rank import render as render_rank
 
 app = typer.Typer(add_completion=False)
 
@@ -81,6 +83,21 @@ def resume(
         typer.echo(result["narrative_md"])
     else:
         typer.echo("Rejected; session closed.")
+
+
+@app.command()
+def rank(
+    directory: str,
+    profile: str = typer.Option(DEFAULT_PROFILE, "--profile"),
+    top: int = typer.Option(DEFAULT_TOP, "--top"),
+):
+    posting_dir = Path(directory)
+    if not posting_dir.is_dir():
+        typer.echo(f"not a directory: {directory}", err=True)
+        raise typer.Exit(1)
+    prof = load_profile(profile)
+    rows, skipped = rank_dir(prof, posting_dir)
+    typer.echo(render_rank(rows, skipped, top))
 
 
 @app.command("ingest-mail")
