@@ -34,6 +34,8 @@ If `profile/profile.yaml` changed since the report, `merit resume` exits 2 and a
 | `MERIT_API_KEY` | no default, required | Provider API key |
 | `MERIT_DB` | `~/.merit/merit.db` | SQLite checkpoint database path |
 
+`track add --dir` creates a per-application dossier under `<MERIT_DB parent>/applications` (mode `0700`). Dossiers hold personal data (job descriptions, recruiter threads, notes) and are never committed to the repo.
+
 ## LangSmith tracing
 
 Tracing is opt-in and uses no LangSmith-specific code in the repo. Enable it purely with `LANGSMITH_TRACING`, `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT`, and `LANGSMITH_ENDPOINT`. Postings and the profile are personal data, so set `LANGSMITH_HIDE_INPUTS=true` and `LANGSMITH_HIDE_OUTPUTS=true` for runs whose content must not be uploaded.
