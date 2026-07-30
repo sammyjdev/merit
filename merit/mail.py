@@ -11,6 +11,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
+from merit import queue
 from merit.fetch import html_to_text
 
 DEFAULT_HOST = "imap.gmail.com"
@@ -21,6 +22,8 @@ RECRUITER_SUBJECT_MARKERS = ("sent you a message", "new message from", "inmail")
 # Real InMail notifications carry the opportunity title as subject (no marker);
 # their sender is stable (operational validation 2026-07-29, 218/218 messages).
 RECRUITER_SENDERS = ("inmail-hit-reply@linkedin.com",)
+JOB_ALERT_SENDERS = ("jobalerts-noreply@linkedin.com",)
+JOB_ALERT_SUBJECT_MARKERS = ("and more", "new jobs", "job alert")
 SLUG_MAX = 60
 
 _SLUG_RUN = re.compile(r"[^a-z0-9]+")
@@ -61,7 +64,12 @@ def connect() -> imaplib.IMAP4_SSL:
         # merely suppressed for display, which `raise ... from None` inside
         # the except block would leave it as).
         raise MailError(f"IMAP login failed for user {user} on host {host}")
-    conn.select(mailbox, readonly=True)
+    # imaplib.IMAP4.select() does not quote its argument, so a mailbox name
+    # containing a space (e.g. Gmail label "Linkedin Jobs") produces an
+    # invalid multi-word SELECT on the wire. Quote only when needed so
+    # existing unquoted single-word mailbox names keep behaving identically.
+    select_mailbox = f'"{mailbox}"' if " " in mailbox else mailbox
+    conn.select(select_mailbox, readonly=True)
     return conn
 
 
@@ -93,6 +101,17 @@ def is_recruiter_message(msg) -> bool:
     return domain_ok and subject_ok
 
 
+def is_job_alert(msg) -> bool:
+    addr = email.utils.parseaddr(str(msg["From"]))[1].lower()
+    if addr in JOB_ALERT_SENDERS:
+        return True
+    domain = _sender_domain(msg)
+    domain_ok = domain == RECRUITER_DOMAIN or domain.endswith("." + RECRUITER_DOMAIN)
+    subject = str(msg["Subject"] or "").lower()
+    subject_ok = any(marker in subject for marker in JOB_ALERT_SUBJECT_MARKERS)
+    return domain_ok and subject_ok
+
+
 def message_text(msg) -> str | None:
     body = msg.get_body(preferencelist=("plain", "html"))
     if body is None:
@@ -101,6 +120,20 @@ def message_text(msg) -> str | None:
     if body.get_content_type() == "text/html":
         return html_to_text(content)
     return content
+
+
+def message_html(msg) -> str | None:
+    body = msg.get_body(preferencelist=("html",))
+    if body is None:
+        return None
+    return body.get_content()
+
+
+def message_date(msg) -> str:
+    try:
+        return email.utils.parsedate_to_datetime(msg["Date"]).strftime("%Y-%m-%d")
+    except (TypeError, ValueError):
+        return "undated"
 
 
 def message_key(msg, raw: bytes) -> str:
@@ -117,10 +150,7 @@ def slug(subject: str) -> str:
 
 
 def posting_path(msg, raw: bytes, out_dir: Path) -> Path:
-    try:
-        date = email.utils.parsedate_to_datetime(msg["Date"]).strftime("%Y-%m-%d")
-    except (TypeError, ValueError):
-        date = "undated"
+    date = message_date(msg)
     key = message_key(msg, raw)
     digest8 = hashlib.sha256(key.encode()).hexdigest()[:8]
     subject = str(msg["Subject"] or "")
@@ -190,3 +220,30 @@ def ingest_messages(raws: Iterable[bytes], out_dir: Path) -> tuple[list[Ingested
             continue
 
     return ingested, skipped
+
+
+def ingest_alerts(raws: Iterable[bytes], queue_path: Path) -> tuple[list[queue.Entry], list[str]]:
+    all_entries: list[queue.Entry] = []
+    skipped: list[str] = []
+
+    for raw in raws:
+        try:
+            msg = email.message_from_bytes(raw, policy=email.policy.default)
+            subject = str(msg["Subject"] or "")
+            if not is_job_alert(msg):
+                skipped.append(f"skipped (not a job alert): subject={subject!r}")
+                continue
+            html = message_html(msg)
+            if html is None:
+                skipped.append(f"skipped (no html body): subject={subject!r}")
+                continue
+            all_entries.extend(queue.parse_alert(html, message_date(msg)))
+        except Exception as exc:
+            # Same batch-isolation contract as ingest_messages: one bad raw
+            # must never abort the batch. exc is the stdlib exception str
+            # only - never message body/secrets.
+            skipped.append(f"skipped (error: {exc}): unparseable message")
+            continue
+
+    added = queue.append_entries(all_entries, queue_path)
+    return added, skipped

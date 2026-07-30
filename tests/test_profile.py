@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from merit import profile as profile_mod
 from merit.profile import ProfileError, load_profile, profile_hash, resolve
 
 FIXTURE = Path(__file__).parent / "fixtures" / "profile_small.yaml"
@@ -38,3 +39,16 @@ def test_resolve_by_alias():
 def test_resolve_unknown_returns_none():
     p = load_profile(FIXTURE)
     assert resolve(p, "Quantum Computing") is None
+
+
+def test_strong_terms_includes_strong_names_and_their_aliases():
+    p = load_profile(FIXTURE)
+    terms = profile_mod.strong_terms(p)
+    assert "fastapi" in terms
+    assert "rest apis" in terms
+
+
+def test_strong_terms_excludes_non_strong_skills_and_their_aliases():
+    p = load_profile(FIXTURE)
+    terms = profile_mod.strong_terms(p)
+    assert "pytorch" not in terms
