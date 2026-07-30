@@ -30,6 +30,10 @@ def _db_path() -> str:
     return str(path)
 
 
+def _dossier_root() -> Path:
+    return Path(_db_path()).parent / "applications"
+
+
 def _read_posting(posting: str) -> tuple[str, dict]:
     if posting == "-":
         return sys.stdin.read(), {"source": "stdin"}
@@ -175,6 +179,7 @@ def track_add(
     status: str = typer.Option("found", "--status"),
     note: str | None = typer.Option(None, "--note"),
     session: str | None = typer.Option(None, "--session"),
+    create_dir: bool = typer.Option(False, "--dir"),
 ):
     try:
         app_id = track.add(
@@ -185,6 +190,7 @@ def track_add(
             status=status,
             note=note,
             session_id=session,
+            dossier_root=_dossier_root() if create_dir else None,
         )
     except track.TrackError as exc:
         typer.echo(str(exc), err=True)
@@ -210,6 +216,30 @@ def track_set(
 def track_list(status: str | None = typer.Option(None, "--status")):
     try:
         typer.echo(track.list_markdown(_db_path(), status=status))
+    except track.TrackError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from None
+
+
+@track_app.command("log")
+def track_log(
+    app_id: int,
+    text: str = typer.Argument("-"),
+    file: str = typer.Option("thread", "--file"),
+):
+    body = sys.stdin.read() if text == "-" else text
+    try:
+        track.log(_db_path(), app_id, body, file=file, dossier_root=_dossier_root())
+    except track.TrackError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from None
+    typer.echo(f"logged to {file} for {app_id}")
+
+
+@track_app.command("show")
+def track_show(app_id: int):
+    try:
+        typer.echo(track.show_markdown(_db_path(), app_id))
     except track.TrackError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1) from None
