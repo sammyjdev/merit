@@ -107,14 +107,25 @@ def rank(
 def ingest_mail(
     out_dir: str = typer.Option(str(INBOX_DIR), "--out-dir"),
     queue_path: str = typer.Option(str(queue.QUEUE_PATH), "--queue-path"),
+    full: bool = typer.Option(False, "--full"),
 ):
     try:
         conn = connect()
     except MailError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1) from None
+
+    cursor_path = Path(out_dir) / ".last-uid"
+    if full:
+        cursor_path.unlink(missing_ok=True)
+    conn.merit_cursor = True
+    conn.merit_cursor_path = cursor_path
+
     try:
         raws = fetch_messages(conn)
+    except MailError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from None
     finally:
         conn.logout()
     ingested, skipped = ingest_messages(raws, Path(out_dir))
