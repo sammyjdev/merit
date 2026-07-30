@@ -8,11 +8,12 @@ import typer
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.types import Command
 
+from merit import queue
 from merit.fetch import fetch_posting
 from merit.graph.build import build_graph
-from merit.mail import INBOX_DIR, MailError, connect, fetch_messages, ingest_messages
+from merit.mail import INBOX_DIR, MailError, connect, fetch_messages, ingest_alerts, ingest_messages
 from merit.models import build_extractor, build_judge, build_writer
-from merit.profile import load_profile, profile_hash
+from merit.profile import load_profile, profile_hash, strong_terms
 from merit.rank import DEFAULT_TOP, rank_dir
 from merit.rank import render as render_rank
 
@@ -101,7 +102,10 @@ def rank(
 
 
 @app.command("ingest-mail")
-def ingest_mail(out_dir: str = typer.Option(str(INBOX_DIR), "--out-dir")):
+def ingest_mail(
+    out_dir: str = typer.Option(str(INBOX_DIR), "--out-dir"),
+    queue_path: str = typer.Option(str(queue.QUEUE_PATH), "--queue-path"),
+):
     try:
         conn = connect()
     except MailError as exc:
@@ -112,9 +116,39 @@ def ingest_mail(out_dir: str = typer.Option(str(INBOX_DIR), "--out-dir")):
     finally:
         conn.logout()
     ingested, skipped = ingest_messages(raws, Path(out_dir))
+    queued, alert_skipped = ingest_alerts(raws, Path(queue_path))
     for item in ingested:
         typer.echo(str(item.path))
         typer.echo(f"  merit match {item.path}")
     for reason in skipped:
         typer.echo(reason, err=True)
+    for reason in alert_skipped:
+        typer.echo(reason, err=True)
     typer.echo(f"ingested {len(ingested)}, skipped {len(skipped)}", err=True)
+    typer.echo(f"queued {len(queued)}", err=True)
+    typer.echo("  merit queue", err=True)
+
+
+@app.command("queue")
+def queue_cmd(
+    queue_path: str = typer.Option(str(queue.QUEUE_PATH), "--queue-path"),
+    all_: bool = typer.Option(False, "--all"),
+    profile: str = typer.Option(DEFAULT_PROFILE, "--profile"),
+):
+    entries = queue.load_entries(Path(queue_path))
+    if not entries:
+        typer.echo("No queued postings yet. Run `merit ingest-mail` to check for job alerts.")
+        return
+    terms = strong_terms(load_profile(profile))
+    hot = [e for e in entries if queue.is_hot(e.title, terms)]
+    cold = [e for e in entries if not queue.is_hot(e.title, terms)]
+
+    for e in hot:
+        typer.echo(f"[hot] {e.title} - {e.company or 'unknown company'}")
+        typer.echo(f"  {e.url}")
+    if all_:
+        for e in cold:
+            typer.echo(f"[cold] {e.title} - {e.company or 'unknown company'}")
+            typer.echo(f"  {e.url}")
+
+    typer.echo("\nFull match requires pasting the description: merit match -")

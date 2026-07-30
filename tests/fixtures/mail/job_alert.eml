@@ -1,0 +1,45 @@
+From: LinkedIn Job Alerts <jobalerts-noreply@linkedin.com>
+To: candidate@example.invalid
+Subject: “Backend Engineer Brazil”: Acme Corp - Senior Backend Engineer, REST APIs and more
+Date: Wed, 29 Jul 2026 06:12:00 +0000
+Message-ID: <jobalert-digest-0001@mail.linkedin.com>
+MIME-Version: 1.0
+Content-Type: multipart/alternative;
+ boundary="===============7712004411938827553=="
+
+--===============7712004411938827553==
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+Your job alert for Backend Engineer Brazil
+
+Senior Backend Engineer, REST APIs - Acme Corp
+Staff PyTorch Research Engineer - Globex Industries
+
+View these jobs in the LinkedIn app.
+
+--===============7712004411938827553==
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+
+<html><body>
+<table>
+<tr><td>
+<a href="https://www.linkedin.com/comm/jobs/view/4123456789/?trackingId=aaa111&amp;refId=r1">Senior Backend Engineer, REST APIs</a>
+<p>Acme Corp</p>
+</td></tr>
+<tr><td>
+<a href="https://www.linkedin.com/comm/jobs/view/4987654321/?trackingId=bbb222&amp;refId=r2">Staff PyTorch Research Engineer</a>
+<p>Globex Industries</p>
+</td></tr>
+<tr><td>
+<a href="https://www.linkedin.com/comm/jobs/view/4123456789/?trackingId=aaa111&amp;refId=r1">Senior Backend Engineer, REST APIs</a>
+<p>Acme Corp</p>
+</td></tr>
+</table>
+<a href="https://www.linkedin.com/comm/jobs/search/?keywords=backend">See all 25 jobs</a>
+<a href="https://www.linkedin.com/comm/psettings/email-unsubscribe?token=xyz">Unsubscribe</a>
+</body></html>
+
+--===============7712004411938827553==--

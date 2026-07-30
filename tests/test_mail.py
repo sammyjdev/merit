@@ -11,6 +11,7 @@ from merit import mail
 FIXTURES = Path(__file__).parent / "fixtures" / "mail"
 RECRUITER_RAW = (FIXTURES / "recruiter.eml").read_bytes()
 NEWSLETTER_RAW = (FIXTURES / "newsletter.eml").read_bytes()
+JOB_ALERT_DIGEST_RAW = (FIXTURES / "job_alert.eml").read_bytes()
 
 PLAIN_ONLY_SENTENCE = (
     "This role directly matches your background in distributed retrieval systems."
@@ -183,6 +184,18 @@ def test_connect_selects_readonly(monkeypatch):
     mail.connect()
 
     assert ("select", "custom-box", True) in fake.calls
+
+
+def test_connect_quotes_mailbox_name_containing_a_space(monkeypatch):
+    monkeypatch.setenv("MERIT_IMAP_USER", "someone@example.invalid")
+    monkeypatch.setenv("MERIT_IMAP_PASSWORD", "hunter2-secret")
+    monkeypatch.setenv("MERIT_IMAP_MAILBOX", "Linkedin Jobs")
+    fake = _FakeConn()
+    monkeypatch.setattr(mail.imaplib, "IMAP4_SSL", lambda host: fake)
+
+    mail.connect()
+
+    assert ("select", '"Linkedin Jobs"', True) in fake.calls
 
 
 # --- fetch_messages() ---------------------------------------------------
@@ -408,3 +421,84 @@ def test_ingest_message_parse_exception_is_skipped(tmp_path, monkeypatch):
 
     assert len(skipped) == 1
     assert len(ingested) == 1
+
+
+# --- is_job_alert() -------------------------------------------------------
+
+
+def test_job_alert_digest_fixture_is_detected():
+    assert mail.is_job_alert(_parse(JOB_ALERT_DIGEST_RAW)) is True
+
+
+def test_job_alert_sender_on_lookalike_domain_is_rejected():
+    raw = JOB_ALERT_DIGEST_RAW.replace(b"@linkedin.com", b"@evil-linkedin.com")
+    assert mail.is_job_alert(_parse(raw)) is False
+
+
+def test_alert_check_accepts_subject_shape_recruiter_check_rejects():
+    msg = _parse(_job_alert_raw())
+    assert mail.is_job_alert(msg) is True
+    assert mail.is_recruiter_message(msg) is False
+
+
+def test_recruiter_and_alert_checks_are_mutually_exclusive():
+    assert mail.is_job_alert(_parse(RECRUITER_RAW)) is False
+    assert mail.is_recruiter_message(_parse(JOB_ALERT_DIGEST_RAW)) is False
+
+
+# --- message_html() --------------------------------------------------------
+
+
+def test_message_html_returns_html_part_not_plain():
+    html = mail.message_html(_parse(JOB_ALERT_DIGEST_RAW))
+    assert html is not None
+    assert "<a href" in html
+
+
+def test_message_html_returns_none_for_plain_only():
+    plain_only_raw = (
+        b"From: LinkedIn Job Alerts <jobalerts-noreply@linkedin.com>\r\n"
+        b"Subject: 5 new jobs and more\r\n"
+        b"Date: Tue, 28 Jul 2026 09:14:00 +0000\r\n"
+        b"Message-ID: <plain-only-alert-0001@mail.linkedin.com>\r\n"
+        b"Content-Type: text/plain; charset=utf-8\r\n\r\n"
+        b"No links here.\r\n"
+    )
+    assert mail.message_html(_parse(plain_only_raw)) is None
+
+
+# --- message_date() ---------------------------------------------------------
+
+
+def test_message_date_formats_and_falls_back_to_undated():
+    assert mail.message_date(_parse(JOB_ALERT_DIGEST_RAW)) == "2026-07-29"
+    assert mail.message_date(_parse(_no_date_raw())) == "undated"
+
+
+# --- ingest_alerts() ---------------------------------------------------------
+
+
+def test_ingest_alerts_skips_non_alert_messages(tmp_path):
+    entries, skipped = mail.ingest_alerts([NEWSLETTER_RAW, RECRUITER_RAW], tmp_path / "queue.json")
+
+    assert entries == []
+    assert len(skipped) == 2
+    assert not any("Unsubscribe at any time" in reason for reason in skipped)
+    assert not any("distributed retrieval systems" in reason for reason in skipped)
+
+
+def test_ingest_alerts_one_bad_raw_never_aborts_the_batch(tmp_path):
+    entries, _skipped = mail.ingest_alerts([b"garbage not really an email", JOB_ALERT_DIGEST_RAW], tmp_path / "queue.json")
+
+    assert len(entries) == 2
+    assert entries[0].title == "Senior Backend Engineer, REST APIs"
+
+
+def test_ingest_alerts_second_run_adds_nothing(tmp_path):
+    queue_path = tmp_path / "queue.json"
+    first, _ = mail.ingest_alerts([JOB_ALERT_DIGEST_RAW], queue_path)
+    second, _ = mail.ingest_alerts([JOB_ALERT_DIGEST_RAW], queue_path)
+
+    assert len(first) == 2
+    assert second == []
+    assert len(mail.queue.load_entries(queue_path)) == 2
