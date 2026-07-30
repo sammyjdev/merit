@@ -8,7 +8,7 @@ import typer
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.types import Command
 
-from merit import queue
+from merit import queue, track
 from merit.fetch import fetch_posting
 from merit.graph.build import build_graph
 from merit.mail import INBOX_DIR, MailError, connect, fetch_messages, ingest_alerts, ingest_messages
@@ -18,6 +18,8 @@ from merit.rank import DEFAULT_TOP, rank_dir
 from merit.rank import render as render_rank
 
 app = typer.Typer(add_completion=False)
+track_app = typer.Typer(add_completion=False)
+app.add_typer(track_app, name="track")
 
 DEFAULT_PROFILE = "profile/profile.yaml"
 
@@ -152,3 +154,51 @@ def queue_cmd(
             typer.echo(f"  {e.url}")
 
     typer.echo("\nFull match requires pasting the description: merit match -")
+
+
+@track_app.command("add")
+def track_add(
+    source: str,
+    title: str | None = typer.Option(None, "--title"),
+    company: str | None = typer.Option(None, "--company"),
+    status: str = typer.Option("found", "--status"),
+    note: str | None = typer.Option(None, "--note"),
+    session: str | None = typer.Option(None, "--session"),
+):
+    try:
+        app_id = track.add(
+            _db_path(),
+            source,
+            title=title,
+            company=company,
+            status=status,
+            note=note,
+            session_id=session,
+        )
+    except track.TrackError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from None
+    typer.echo(f"added {app_id}")
+
+
+@track_app.command("set")
+def track_set(
+    app_id: int,
+    status: str,
+    note: str | None = typer.Option(None, "--note"),
+):
+    try:
+        track.set_status(_db_path(), app_id, status, note=note)
+    except track.TrackError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from None
+    typer.echo(f"{app_id} -> {status}")
+
+
+@track_app.command("list")
+def track_list(status: str | None = typer.Option(None, "--status")):
+    try:
+        typer.echo(track.list_markdown(_db_path(), status=status))
+    except track.TrackError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from None
