@@ -4,7 +4,7 @@ Stdlib only - no merit.* imports, no LLM/network calls."""
 import json
 import re
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -13,6 +13,7 @@ QUEUE_PATH = Path("corpus/queue.json")
 JOB_URL_MARKER = "/jobs/view/"
 
 _CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
+_JOB_VIEW_ID = re.compile(r"/jobs/view/(\d+)")
 
 
 @dataclass(frozen=True)
@@ -87,8 +88,22 @@ def is_hot(title: str, terms: Iterable[str]) -> bool:
     return any(term.lower() in lowered for term in terms)
 
 
-def dedupe_key(url: str) -> str:
+def normalize_url(url: str) -> str:
+    """Collapse a LinkedIn job-view URL (tracking params, /comm/ prefix, no/yes
+    trailing slash) to a stable `<scheme>://<netloc>/jobs/view/<id>/` shape.
+    Scheme and netloc are preserved as given, never rewritten. A url that
+    doesn't match the /jobs/view/<digits> shape is returned unchanged - real
+    production data has none of these, but dropping an entry here would be
+    worse than leaving its url un-normalized."""
     parts = urlsplit(url)
+    match = _JOB_VIEW_ID.search(parts.path)
+    if not match:
+        return url
+    return f"{parts.scheme}://{parts.netloc}/jobs/view/{match.group(1)}/"
+
+
+def dedupe_key(url: str) -> str:
+    parts = urlsplit(normalize_url(url))
     return f"{parts.scheme}://{parts.netloc}{parts.path}"
 
 
@@ -100,16 +115,34 @@ def load_entries(path: Path) -> list[Entry]:
 
 
 def append_entries(new: Iterable[Entry], path: Path) -> list[Entry]:
+    # Normalize existing rows too (not just incoming ones): a file written
+    # before this normalization existed still holds raw tracking urls, and a
+    # legacy row must collide with both a raw and a normalized duplicate.
     existing = load_entries(path)
-    seen_keys = {dedupe_key(e.url) for e in existing}
+    normalized_existing: list[Entry] = []
+    existing_changed = False
+    seen_keys: set[str] = set()
+    for entry in existing:
+        key = dedupe_key(entry.url)
+        if key in seen_keys:
+            existing_changed = True  # dropping a pre-existing duplicate row
+            continue
+        seen_keys.add(key)
+        normalized_url = normalize_url(entry.url)
+        if normalized_url != entry.url:
+            existing_changed = True
+            entry = replace(entry, url=normalized_url)
+        normalized_existing.append(entry)
+
     added: list[Entry] = []
     for entry in new:
         key = dedupe_key(entry.url)
         if key in seen_keys:
             continue
         seen_keys.add(key)
-        added.append(entry)
-    if not added:
+        added.append(replace(entry, url=normalize_url(entry.url)))
+
+    if not added and not existing_changed:
         return []
 
     rows = [
@@ -120,7 +153,7 @@ def append_entries(new: Iterable[Entry], path: Path) -> list[Entry]:
             "alert_date": e.alert_date,
             "location": e.location,
         }
-        for e in (existing + added)
+        for e in (normalized_existing + added)
     ]
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_name(path.name + ".tmp")

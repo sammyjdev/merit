@@ -1,10 +1,12 @@
 # merit/mail.py
 """Mail ingestion: stdlib IMAP + email parsing. No new deps; the graph core never imports this."""
+import contextlib
 import email
 import email.policy
 import email.utils
 import hashlib
 import imaplib
+import json
 import os
 import re
 from collections.abc import Iterable
@@ -33,6 +35,14 @@ class MailError(RuntimeError):
     pass
 
 
+class SelectError(MailError):
+    """A mailbox SELECT failed or returned a malformed response."""
+
+
+class SearchError(MailError):
+    """A SEARCH (or UID SEARCH) failed or returned a malformed response."""
+
+
 @dataclass(frozen=True)
 class Ingested:
     path: Path
@@ -40,7 +50,26 @@ class Ingested:
     key: str
 
 
-def connect() -> imaplib.IMAP4_SSL:
+def _ok(typ: str, data, what: str, exc: type[MailError] = MailError) -> None:
+    """Raise `exc` naming `what` unless `typ` is "OK" and `data` is well-formed.
+    IMAP command methods return a status string you must check yourself - they
+    do not raise on a missing mailbox or a state error. A malformed `data`
+    (None, [None], or []) is never a legitimate empty result - a real empty
+    mailbox/search returns [b""], which this deliberately does NOT reject."""
+    malformed = data is None or data in ([None], [])
+    if typ != "OK" or malformed:
+        raise exc(f"IMAP {what} failed (status={typ!r})")
+
+
+def _close_quietly(conn) -> None:
+    """Best-effort logout so a broken connection is never left open when we
+    are already about to raise for the real failure. Any exception here would
+    just mask that real failure, so it is swallowed."""
+    with contextlib.suppress(Exception):
+        conn.logout()
+
+
+def _env_config() -> tuple[str, str, str, str]:
     host = os.environ.get("MERIT_IMAP_HOST", DEFAULT_HOST)
     user = os.environ.get("MERIT_IMAP_USER")
     password = os.environ.get("MERIT_IMAP_PASSWORD")
@@ -49,6 +78,11 @@ def connect() -> imaplib.IMAP4_SSL:
         raise MailError("missing required env var MERIT_IMAP_USER")
     if not password:
         raise MailError("missing required env var MERIT_IMAP_PASSWORD")
+    return host, user, password, mailbox
+
+
+def connect() -> imaplib.IMAP4_SSL:
+    host, user, password, mailbox = _env_config()
 
     conn = imaplib.IMAP4_SSL(host)
     login_failed = False
@@ -63,22 +97,96 @@ def connect() -> imaplib.IMAP4_SSL:
         # being handled, so __context__ is None on the raised MailError (not
         # merely suppressed for display, which `raise ... from None` inside
         # the except block would leave it as).
+        _close_quietly(conn)
         raise MailError(f"IMAP login failed for user {user} on host {host}")
     # imaplib.IMAP4.select() does not quote its argument, so a mailbox name
     # containing a space (e.g. Gmail label "Linkedin Jobs") produces an
     # invalid multi-word SELECT on the wire. Quote only when needed so
     # existing unquoted single-word mailbox names keep behaving identically.
     select_mailbox = f'"{mailbox}"' if " " in mailbox else mailbox
-    conn.select(select_mailbox, readonly=True)
+    typ, data = conn.select(select_mailbox, readonly=True)
+    try:
+        _ok(typ, data, f"select mailbox {mailbox!r}", SelectError)
+    except SelectError:
+        _close_quietly(conn)
+        raise
     return conn
 
 
+def _read_cursor(path: Path) -> dict | None:
+    """Return the parsed cursor record, or None on anything short of a clean
+    read (missing file, corrupt JSON, not an object) - any of those means
+    "no usable cursor", never a crash."""
+    try:
+        record = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return record if isinstance(record, dict) else None
+
+
+def _write_cursor(path: Path, record: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_name(path.name + ".tmp")
+    tmp_path.write_text(json.dumps(record), encoding="utf-8")
+    tmp_path.chmod(0o600)
+    tmp_path.replace(path)
+
+
+def _fetch_messages_cursor(conn) -> list[bytes]:
+    cursor_path: Path = conn.merit_cursor_path
+    host, user, _password, mailbox = _env_config()
+
+    # response() pops the buffered UIDVALIDITY value set by the preceding
+    # SELECT - it must be read here, before any other command, or it is gone.
+    _typ, uidvalidity_data = conn.response("UIDVALIDITY")
+    uidvalidity = (
+        uidvalidity_data[0].decode() if uidvalidity_data and uidvalidity_data[0] else ""
+    )
+    identity = {"host": host, "user": user, "mailbox": mailbox, "uidvalidity": uidvalidity}
+
+    cursor = _read_cursor(cursor_path)
+    # A stale cursor (identity mismatch, or none on disk) must never be read
+    # as "skip everything" - fall back to a full scan instead.
+    identity_matches = cursor is not None and all(cursor.get(k) == v for k, v in identity.items())
+    last_uid = cursor.get("uid") if identity_matches else None
+
+    if last_uid is None:
+        typ, data = conn.uid("SEARCH", "ALL")
+    else:
+        typ, data = conn.uid("SEARCH", "UID", f"{last_uid + 1}:*")
+    _ok(typ, data, "UID SEARCH", SearchError)
+    raw_uids = [int(u) for u in data[0].split()] if data[0] else []
+    # IMAP's "n:*" range returns the highest-UID message even when n exceeds
+    # every UID present, so the server-side search alone is not enough - the
+    # client must filter to strictly-newer UIDs itself.
+    new_uids = [u for u in raw_uids if u > last_uid] if last_uid is not None else raw_uids
+
+    raws: list[bytes] = []
+    for uid in new_uids:
+        typ, msg_data = conn.uid("FETCH", str(uid), "(BODY.PEEK[])")
+        _ok(typ, msg_data, f"UID FETCH {uid}")
+        for part in msg_data:
+            if isinstance(part, tuple):
+                raws.append(part[1])
+
+    # Cursor only ever advances: a transient empty/lower search result must
+    # not regress what is already on disk in the same run.
+    candidates = raw_uids + ([last_uid] if last_uid is not None else [])
+    new_last_uid = max(candidates) if candidates else 0
+    _write_cursor(cursor_path, {**identity, "uid": new_last_uid})
+    return raws
+
+
 def fetch_messages(conn) -> list[bytes]:
-    _typ, data = conn.search(None, "ALL")
-    nums = data[0].split() if data and data[0] else []
+    if getattr(conn, "merit_cursor", None):
+        return _fetch_messages_cursor(conn)
+    typ, data = conn.search(None, "ALL")
+    _ok(typ, data, "search ALL", SearchError)
+    nums = data[0].split() if data[0] else []
     raws: list[bytes] = []
     for num in nums:
-        _typ, msg_data = conn.fetch(num, "(BODY.PEEK[])")
+        typ, msg_data = conn.fetch(num, "(BODY.PEEK[])")
+        _ok(typ, msg_data, f"fetch message {num!r}")
         for part in msg_data:
             if isinstance(part, tuple):
                 raws.append(part[1])
