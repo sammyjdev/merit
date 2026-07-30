@@ -36,3 +36,12 @@ def resolve(profile: Profile, demand_name: str) -> SkillEntry | None:
         if alias.lower() == needle:
             return by_id.get(skill_id.lower())
     return None
+
+
+def strong_terms(profile: Profile) -> list[str]:
+    strong_ids = {s.id.lower() for s in profile.skills if s.status == "strong"}
+    terms = [s.name.lower() for s in profile.skills if s.status == "strong"]
+    for alias, skill_id in profile.aliases.items():
+        if skill_id.lower() in strong_ids:
+            terms.append(alias.lower())
+    return terms
