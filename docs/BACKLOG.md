@@ -1,6 +1,6 @@
 # MERIT backlog and next steps
 
-Status snapshot (2026-07-30): phase 1 + Wave "operational" sealed. On master:
+Status snapshot (2026-07-30, wave 2 sealed): phase 1 + operational + hardening/dossier waves done. On master:
 six-node graph, CLI (match/resume/rank/queue/track/ingest-mail), security
 hardening, CI gate. Golden evaluation passed (agreement >= 80%, 29 postings /
 114 pinned verdicts). Live-validated against the owner's real mailbox:
@@ -8,15 +8,12 @@ hardening, CI gate. Golden evaluation passed (agreement >= 80%, 29 postings /
 1340 alert digests parsed into a 7024-row triage queue, application ledger
 smoke-tested end to end.
 
-## Next in the loop (forge, issues open and agent:ready)
+## Next in the loop (forge)
 
-- [ ] Issue #14 - mail/queue hardening: IMAP status checks (masked a real
-      failure on 2026-07-29), bounded incremental rescan (full rescan of 1340
-      digests took >2 min), close socket on failed login, normalized queue
-      URLs (tracking URLs are ~1KB each).
-- [ ] Issue #15 - track dossier: per-application dir (jd.md, thread.md,
-      notes.md) + `track log` / `track show`. Owner-requested: paste the
-      whole recruiter thread and process notes, not just a status.
+- Nothing queued. Issues #14 (hardening) and #15 (dossier) shipped and
+  live-validated 2026-07-30: incremental rescan 97s -> 3.3s on unchanged
+  mailbox; dossier smoke-tested on a real application (legacy row upgraded,
+  jd.md seeded from the ingested posting).
 
 ## Awaiting the owner
 
