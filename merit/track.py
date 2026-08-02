@@ -294,3 +294,30 @@ def list_markdown(db_path: str, status: str | None = None) -> str:
             f"{_cell(row['status'])} | {_cell(row['updated_at'])} | {_cell(row['note'])} |"
         )
     return "\n".join(lines)
+
+
+def entries(db_path: str, app_id: int) -> list[tuple[str, str, str]]:
+    """Full log history for an application, chronological, as (stamp, source, body).
+
+    Unlike show_markdown()'s last-3 window, this returns everything - the
+    dossie view renders the thread and notes panels in full.
+    """
+    with contextlib.closing(_conn(db_path)) as conn, conn:
+        row = conn.execute(_SELECT_ROW_SQL, {"id": app_id}).fetchone()
+    if row is None:
+        raise TrackError(f"no application with id {app_id}")
+
+    dossier_dir = row["dossier_dir"]
+    if not dossier_dir:
+        return []
+    dossier = Path(dossier_dir)
+    if not dossier.is_dir():
+        return []
+
+    combined: list[tuple[str, str, str]] = []
+    for source in LOG_FILES:
+        log_path = dossier / f"{source}.md"
+        if log_path.is_file():
+            text = log_path.read_text(encoding="utf-8", errors="replace")
+            combined.extend((stamp, source, body) for stamp, body in _entries(text))
+    return sorted(combined)
