@@ -1,0 +1,109 @@
+import pytest
+from typer.testing import CliRunner
+
+from merit.cli import app
+from merit.serve.agent import (
+    LABEL,
+    install_agent,
+    log_path,
+    plist_path,
+    render_plist,
+    resolve_binary,
+    uninstall_agent,
+)
+
+
+def test_plist_and_log_path_helpers(tmp_path):
+    p_path = plist_path(tmp_path)
+    l_path = log_path(tmp_path)
+    assert p_path == tmp_path / "Library" / "LaunchAgents" / f"{LABEL}.plist"
+    assert l_path == tmp_path / ".merit" / "serve.log"
+
+
+def test_plist_rendered_with_keepalive_and_localhost_port(tmp_path):
+    plist = render_plist(tmp_path, "/usr/bin/merit", 4321)
+    assert plist["KeepAlive"] is True
+    assert plist["RunAtLoad"] is True
+    assert plist["ProgramArguments"] == ["/usr/bin/merit", "serve", "--port", "4321"]
+    assert str(tmp_path) in plist["StandardOutPath"]
+    assert str(tmp_path) in plist["StandardErrorPath"]
+    assert plist["StandardOutPath"] == plist["StandardErrorPath"]
+    assert plist["Label"] == LABEL
+
+
+def test_install_and_uninstall_agent_direct(tmp_path):
+    written = install_agent(tmp_path, "/usr/local/bin/merit", 4321)
+    assert written.exists()
+    assert written == plist_path(tmp_path)
+
+    removed = uninstall_agent(tmp_path)
+    assert removed is True
+    assert not written.exists()
+
+    removed_again = uninstall_agent(tmp_path)
+    assert removed_again is False
+
+
+def test_install_and_uninstall_roundtrip(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setattr(
+        "shutil.which", lambda cmd: "/usr/local/bin/merit" if cmd == "merit" else None
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["serve", "--install-agent", "--port", "4321"])
+    assert result.exit_code == 0
+
+    expected_plist = tmp_path / "Library" / "LaunchAgents" / f"{LABEL}.plist"
+    assert expected_plist.exists()
+    assert str(expected_plist) in result.output
+    assert f"launchctl load {expected_plist}" in result.output
+
+    result_uninstall = runner.invoke(app, ["serve", "--uninstall-agent"])
+    assert result_uninstall.exit_code == 0
+    assert not expected_plist.exists()
+    assert "LaunchAgent removed" in result_uninstall.output
+
+    result_uninstall_again = runner.invoke(app, ["serve", "--uninstall-agent"])
+    assert result_uninstall_again.exit_code == 0
+    assert "No LaunchAgent installed" in result_uninstall_again.output
+
+
+def test_plist_program_arguments_use_absolute_binary(tmp_path):
+    with pytest.raises(AssertionError):
+        render_plist(tmp_path, "merit", 4321)
+
+    plist = render_plist(tmp_path, "/opt/homebrew/bin/merit", 4321)
+    assert plist["ProgramArguments"][0] == "/opt/homebrew/bin/merit"
+
+
+def test_serve_has_no_host_option():
+    runner = CliRunner()
+    result = runner.invoke(app, ["serve", "--help"])
+    assert result.exit_code == 0
+    assert "--host" not in result.output
+
+
+def test_serve_help_shows_port_option():
+    runner = CliRunner()
+    result = runner.invoke(app, ["serve", "--help"])
+    assert result.exit_code == 0
+    assert "--port" in result.output
+
+
+def test_serve_both_flags_errors():
+    runner = CliRunner()
+    result = runner.invoke(app, ["serve", "--install-agent", "--uninstall-agent"])
+    assert result.exit_code == 1
+    assert "pass exactly one of --install-agent / --uninstall-agent" in result.output
+
+
+def test_resolve_binary_raises_if_not_found(monkeypatch):
+    monkeypatch.setattr("shutil.which", lambda cmd: None)
+    with pytest.raises(RuntimeError):
+        resolve_binary()
+
+
+def test_resolve_binary_returns_path_if_found(monkeypatch):
+    monkeypatch.setattr("shutil.which", lambda cmd: "/usr/bin/merit")
+    assert resolve_binary() == "/usr/bin/merit"

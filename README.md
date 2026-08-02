@@ -44,6 +44,24 @@ Tracing is opt-in and uses no LangSmith-specific code in the repo. Enable it pur
 
 `pytest -q` runs the offline suite with no network and deselects the provider marker. `pytest -m provider -q` runs the opt-in golden evaluation and needs `MERIT_API_KEY` plus a local `corpus/golden.json`.
 
+## Serve (local UI)
+
+`merit serve --port 4321` starts a local web UI (Fila, Pipeline, Dossie views) bound to `127.0.0.1` only - the server never listens on any other interface, and there is no `--host` option to override that. Open `http://127.0.0.1:4321` in a browser.
+
+To keep it running in the background, install a macOS LaunchAgent:
+
+```bash
+merit serve --install-agent
+launchctl load ~/Library/LaunchAgents/com.sammyjdev.merit-serve.plist
+```
+
+This writes the plist (KeepAlive + RunAtLoad, pointed at the resolved `merit` binary) but does not load it - run the printed `launchctl load` command yourself. Logs go to `~/.merit/serve.log`. Remove the agent with:
+
+```bash
+launchctl unload ~/Library/LaunchAgents/com.sammyjdev.merit-serve.plist
+merit serve --uninstall-agent
+```
+
 ## The honesty rule
 
 Every statement in generated material must trace to a profile evidence item. A claim without an evidence pointer is a defect, not a style choice. LLM-judged verdicts are post-validated by code: verdicts for demands that were not asked about are dropped, and strong/partial verdicts citing evidence not present in the profile are downgraded to gap.
