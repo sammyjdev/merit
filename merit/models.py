@@ -15,6 +15,7 @@ from merit.schemas import Demands, ResidueVerdicts
 
 DEEPINFRA_BASE = "https://api.deepinfra.com/v1/openai"
 DEFAULT_CLAUDE_SUBSCRIPTION_MODEL = "claude-sonnet-4-5"
+DEFAULT_VERTEX_MODEL = "gemini-2.0-flash-001"
 
 
 class ClaudeSubscriptionUnavailable(RuntimeError):
@@ -30,6 +31,21 @@ def _load_claude_agent_sdk():
             "package. Install it with: pip install 'merit[subscription]'"
         ) from exc
     return claude_agent_sdk
+
+
+class VertexBackendUnavailable(RuntimeError):
+    """The optional langchain-google-vertexai package is not installed."""
+
+
+def _load_vertex_chat_model():
+    try:
+        from langchain_google_vertexai import ChatVertexAI
+    except ImportError as exc:
+        raise VertexBackendUnavailable(
+            "MERIT_MODEL=vertex requires the langchain-google-vertexai "
+            "package. Install it with: pip install 'merit[vertex]'"
+        ) from exc
+    return ChatVertexAI
 
 
 class ClaudeSubscriptionChat(BaseChatModel):
@@ -109,6 +125,14 @@ def build_chat_model(temperature: float = 0.0) -> BaseChatModel:
     backend = _env("MERIT_MODEL")
     if backend == "claude-subscription":
         return ClaudeSubscriptionChat(temperature=temperature)
+    if backend == "vertex":
+        chat_vertex_ai = _load_vertex_chat_model()
+        return chat_vertex_ai(
+            model=DEFAULT_VERTEX_MODEL,
+            project=_env("GOOGLE_CLOUD_PROJECT"),
+            location=os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1"),
+            temperature=temperature,
+        )
     return ChatOpenAI(
         model=backend,
         base_url=os.environ.get("MERIT_API_BASE", DEEPINFRA_BASE),
