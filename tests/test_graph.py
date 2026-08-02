@@ -71,3 +71,55 @@ def test_non_bool_resume_reinterrupts():
     graph.invoke({"posting_text": "FastAPI role", "posting_meta": {}}, config)
     result = graph.invoke(Command(resume="yes"), config)
     assert "__interrupt__" in result
+
+
+def test_build_graph_wraps_nodes_in_spans_when_otel_enabled(monkeypatch):
+    from types import SimpleNamespace
+
+    from merit import telemetry
+
+    class FakeSpanCM:
+        def __init__(self, recorder, name):
+            self.recorder = recorder
+            self.name = name
+
+        def __enter__(self):
+            self.recorder.append(self.name)
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    class FakeTracer:
+        def __init__(self):
+            self.spans = []
+
+        def start_as_current_span(self, name):
+            return FakeSpanCM(self.spans, name)
+
+    class FakeTrace:
+        def __init__(self, tracer):
+            self.tracer = tracer
+
+        def get_tracer(self, name):
+            return self.tracer
+
+    monkeypatch.setenv("MERIT_OTEL", "1")
+    tracer = FakeTracer()
+    monkeypatch.setattr(
+        telemetry,
+        "_load_otel",
+        lambda: SimpleNamespace(trace=FakeTrace(tracer)),
+    )
+    graph, config = _graph(), _config()
+
+    graph.invoke({"posting_text": "FastAPI role", "posting_meta": {}}, config)
+
+
+    assert tracer.spans == [
+        "merit.node.ingest",
+        "merit.node.extract",
+        "merit.node.match",
+        "merit.node.report",
+        "merit.node.approval",
+    ]
