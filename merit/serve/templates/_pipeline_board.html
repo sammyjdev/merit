@@ -1,0 +1,44 @@
+<div id="board">
+{% if not total_apps %}
+  <div class="pipeline-empty">
+    <p>pipeline vazio - promova vagas na Fila</p>
+  </div>
+{% else %}
+  <div class="pipeline-kanban">
+    {% for col in columns %}
+      <div class="pipeline-column">
+        <div class="column-header">
+          <span class="column-label">{{ col.label }} ({{ col.count }})</span>
+        </div>
+        <div class="column-cards">
+          {% for card in col.apps %}
+            <div class="pipeline-card" data-row>
+              <div class="card-header">
+                <a href="/dossie/{{ card.id }}" data-open class="card-title">{{ card.title }}</a>
+                {% if card.company %}
+                  <div class="card-company">{{ card.company }}</div>
+                {% endif %}
+              </div>
+              <div class="card-meta">
+                <span class="card-date">{{ card.updated_at }}</span>
+              </div>
+              <div class="card-actions">
+                <select name="status"
+                        aria-label="mover aplicacao"
+                        hx-post="/pipeline/{{ card.id }}/move"
+                        hx-target="#board"
+                        hx-swap="outerHTML"
+                        hx-trigger="change">
+                  {% for s in all_statuses %}
+                    <option value="{{ s }}" {% if card.status == s %}selected{% endif %}>{{ s }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+</div>
