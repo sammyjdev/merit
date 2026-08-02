@@ -237,11 +237,38 @@ def track_log(
 
 
 @app.command("serve")
-def serve(port: int = typer.Option(4321, "--port")):
+def serve(
+    port: int = typer.Option(4321, "--port"),
+    install_agent: bool = typer.Option(False, "--install-agent"),
+    uninstall_agent: bool = typer.Option(False, "--uninstall-agent"),
+):
+    if install_agent and uninstall_agent:
+        typer.echo("pass exactly one of --install-agent / --uninstall-agent")
+        raise typer.Exit(1)
+
+    if install_agent:
+        from merit.serve import agent as launch_agent
+
+        binary = launch_agent.resolve_binary()
+        written = launch_agent.install_agent(Path.home(), binary, port)
+        typer.echo(str(written))
+        typer.echo(f"launchctl load {written}")
+        return
+
+    if uninstall_agent:
+        from merit.serve import agent as launch_agent
+
+        if launch_agent.uninstall_agent(Path.home()):
+            typer.echo("LaunchAgent removed")
+        else:
+            typer.echo("No LaunchAgent installed")
+        return
+
     import uvicorn
 
     from merit.serve.app import HOST, create_app
 
+    assert HOST == "127.0.0.1"  # noqa: S101
     typer.echo(f"MERIT serve on http://{HOST}:{port} (localhost only)")
     uvicorn.run(create_app(), host=HOST, port=port, log_level="warning")
 
