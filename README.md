@@ -40,6 +40,31 @@ If `profile/profile.yaml` changed since the report, `merit resume` exits 2 and a
 
 Tracing is opt-in and uses no LangSmith-specific code in the repo. Enable it purely with `LANGSMITH_TRACING`, `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT`, and `LANGSMITH_ENDPOINT`. Postings and the profile are personal data, so set `LANGSMITH_HIDE_INPUTS=true` and `LANGSMITH_HIDE_OUTPUTS=true` for runs whose content must not be uploaded.
 
+## Engines
+
+`MERIT_MODEL` selects the chat backend used by `build_extractor`,
+`build_judge`, and `build_writer`:
+
+| Value | Backend | Auth |
+| --- | --- | --- |
+| any DeepInfra/OpenAI-compatible model id (default) | `ChatOpenAI` | `MERIT_API_KEY` + `MERIT_API_BASE` |
+| `claude-subscription` | Claude Agent SDK, `pip install '.[subscription]'` | the machine's Claude Code login, no API key |
+| `vertex` | Google `ChatVertexAI`, `pip install '.[vertex]'` | GCP ADC (`gcloud auth application-default login` or `GOOGLE_APPLICATION_CREDENTIALS`); `GOOGLE_CLOUD_PROJECT` required, `GOOGLE_CLOUD_LOCATION` defaults to `us-central1` |
+
+Both optional backends raise a named error (`ClaudeSubscriptionUnavailable` /
+`VertexBackendUnavailable`) telling you which extra to install if the
+package is missing.
+
+## Observability
+
+`merit serve` is instrumented with OpenTelemetry when both the `[otel]`
+extra is installed (`pip install '.[otel]'`) and `MERIT_OTEL=1` is set. It
+traces every HTTP request and every graph node (`ingest`, `extract`,
+`match`, `report`, `approval`, `narrative`). Spans go to the console by
+default; set `OTEL_EXPORTER_OTLP_ENDPOINT` to export to an OTLP collector
+instead. With the extra absent or `MERIT_OTEL` unset, there is zero behavior
+change - `merit serve` and the graph run exactly as before.
+
 ## Testing
 
 `pytest -q` runs the offline suite with no network and deselects the provider marker. `pytest -m provider -q` runs the opt-in golden evaluation and needs `MERIT_API_KEY` plus a local `corpus/golden.json`.
