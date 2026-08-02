@@ -236,6 +236,16 @@ def track_log(
     typer.echo(f"logged to {file} for {app_id}")
 
 
+@app.command("serve")
+def serve(port: int = typer.Option(4321, "--port")):
+    import uvicorn
+
+    from merit.serve.app import HOST, create_app
+
+    typer.echo(f"MERIT serve on http://{HOST}:{port} (localhost only)")
+    uvicorn.run(create_app(), host=HOST, port=port, log_level="warning")
+
+
 @track_app.command("show")
 def track_show(app_id: int):
     try:

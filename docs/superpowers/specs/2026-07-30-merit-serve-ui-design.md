@@ -57,13 +57,24 @@ No nested menus. Deep-link URLs: `/fila`, `/pipeline`, `/dossie/{id}`.
    notes panel -> `track.log(file="notes")`, full log history
    (all entries, not just last 3 - add `track.entries()` accessor).
 
-## Visual direction (resolved; executors implement verbatim from plan)
+## Visual direction (RESOLVED via house design stack 2026-08-01; verbatim)
 
-Light, quiet, information-dense. System font stack; one accent color;
-generous line-height; no icons libraries, no animation beyond htmx swaps.
-The plan carries the exact CSS custom-property tokens and per-view
-layout specs (decided via the house design stack before plan-writing).
-Plain hyphens only in all copy - never em/en dashes.
+Engine decision (ui-ux-pro-max): teal technical palette + single action
+orange, dashboard/data mood. Adapted by authority rules: fonts go system
+stack + `ui-monospace` for data (Google Fonts CDN violates the CSP);
+landing-page pattern discarded (3-view tool keeps density direction).
+Dials: VARIANCE 3, MOTION 1 (150ms hovers only + prefers-reduced-motion),
+DENSITY 8. Impeccable pass at integration wave is the final authority.
+
+Tokens (tokens.css, executors copy verbatim):
+  --bg:#F7FAF9; --surface:#FFFFFF; --ink:#16342F; --muted:#5C7570;
+  --line:#DCE7E4; --accent:#0F766E; --accent-weak:#E6F2F0;
+  --cta:#C2410C; --danger:#B42318;
+  font: system-ui stack; data/scores/timestamps in ui-monospace;
+  spacing scale 4/8/12/16/24/32; radius 6px; no shadows deeper than
+  0 1px 2px rgba(22,52,47,.06); focus ring 2px var(--accent).
+Contrast floor 4.5:1; cursor-pointer on clickables; no emoji icons;
+plain hyphens only in all copy - never em/en dashes.
 
 ## Security
 
@@ -82,9 +93,22 @@ Plain hyphens only in all copy - never em/en dashes.
 - Keyboard/JS untested (50 lines, manual smoke); CSP + bind tests explicit.
 - Gate: existing 192 tests keep passing untouched + new suite; ruff clean.
 
-## Phases
+## Phases (skills-closure mapping decided 2026-08-01)
 
 - v0.3a (this spec): serve + 3 views + LaunchAgent.
-- v0.3b: Claude Agent SDK backend as `MERIT_MODEL=claude-subscription`
-  (langchain wrapper); zero UI change.
+- v0.3b "engines + observability" (one lane, adjacent files):
+  - Claude Agent SDK backend as `MERIT_MODEL=claude-subscription`
+    (langchain wrapper in merit/models.py); zero UI change.
+  - Vertex AI judge backend (`MERIT_MODEL=vertex`, langchain-google-vertexai)
+    - closes the GCP/Vertex profile gap the honest way (owner provides a
+    GCP project, ~15 min).
+  - OpenTelemetry instrumentation of merit serve: per-request traces +
+    per-graph-node spans, OTLP/console exporter - closes the OTel gap.
+- v0.25: LangSmith dataset + GNOMON judge (promotes LangSmith to strong).
+- v1.0: METRON benchmark (pre-registered; runs on API engines, not
+  subscription, for reproducibility).
+- Post-1.0 optional: React UI v2 as a separate portfolio project (React
+  gap is NOT forced into this repo - HTMX was a deliberate choice).
 - Later: SSE progress for deep match from the UI; queue triage overlay.
+- Declared out (honesty rule): PyTorch/TensorFlow/classic MLOps and
+  Bedrock AgentCore have no natural fit here; they stay declared gaps.
