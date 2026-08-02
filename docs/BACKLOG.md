@@ -13,10 +13,20 @@ smoke-tested end to end.
 
 ## Next in the loop
 
-- [ ] Lane E (v0.3b): claude-subscription + vertex model backends + OTel
-      instrumentation of serve (dispatched 2026-08-01).
-- [ ] v0.25 evals (LangSmith dataset + GNOMON judge) - after v0.3b.
-- [ ] v1.0 METRON benchmark - pre-registration gate with the owner.
+- [ ] v1.0 METRON benchmark - NEXT. Pre-registration gate with the owner
+      before any run; executes on API engines for reproducibility.
+- [ ] PyPI publication as merit-fit (name verified free 2026-08-02; `merit`
+      is taken) - owner decides when to seal.
+- [ ] Enhancement: GNOMON judge panel over report/narrative quality
+      (the v0.25 agreement experiment used a deterministic scorer).
+- [ ] Note: MERIT_API_KEY (DeepInfra) no longer present in any env/keychain;
+      store as merit-deepinfra-key to re-enable API-engine runs (required
+      for the v1.0 benchmark).
+- Done 2026-08-01/02: v0.3b engines+OTel (PR #22, live-validated:
+  subscription full match, vertex probe on own GCP project, OTel spans);
+  v0.25 LangSmith (merit-golden dataset sanitized-by-contract, experiment
+  merit-graph-1feec11d: 95.4% mean agreement, 24/29 perfect, 12m28s on the
+  subscription engine).
 - Previously: Issues #14 (hardening) and #15 (dossier) shipped and
   live-validated 2026-07-30: incremental rescan 97s -> 3.3s on unchanged
   mailbox; dossier smoke-tested on a real application (legacy row upgraded,
