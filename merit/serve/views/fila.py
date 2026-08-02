@@ -11,6 +11,9 @@ from merit.serve import rendering
 
 router = APIRouter()
 
+# Integration-wave cap (live smoke 2026-08-01: 3274 hot rows rendered at once).
+FILA_LIMIT = 50
+
 
 def _queue_path() -> Path:
     return Path(os.environ.get("MERIT_QUEUE_PATH", str(queue.QUEUE_PATH)))
@@ -41,7 +44,8 @@ def _rows(show_cold: bool) -> dict:
         for entry in hot_entries
     ]
     hot.sort(key=lambda entry: entry["score"], reverse=True)
-    return {"hot": hot, "cold": cold, "show_cold": show_cold}
+    hot_more = max(0, len(hot) - FILA_LIMIT)
+    return {"hot": hot[:FILA_LIMIT], "hot_more": hot_more, "cold": cold, "show_cold": show_cold}
 
 
 @router.get("/fila")

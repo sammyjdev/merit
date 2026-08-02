@@ -20,6 +20,9 @@
   {% else %}
   <p class="muted">fila vazia - rode merit queue para atualizar</p>
   {% endfor %}
+  {% if hot_more %}
+  <p class="muted">e mais {{ hot_more }} na fila - descarte ou acompanhe estas para ver as proximas</p>
+  {% endif %}
 
   {% if show_cold %}
   <a href="/fila">ocultar frias</a>

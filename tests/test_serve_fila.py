@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from merit import queue, track
 from merit.serve.app import create_app
+from merit.serve.views import fila
 
 FIXTURES = Path(__file__).parent / "fixtures"
 PROFILE_FIXTURE = FIXTURES / "profile_small.yaml"
@@ -92,3 +93,31 @@ def test_fila_rows_have_keyboard_contract(client):
     assert "data-open" in body
     assert 'target="_blank"' in body
     assert 'rel="noopener"' in body
+
+
+@pytest.fixture
+def client_many(tmp_path, monkeypatch):
+    queue_path = tmp_path / "queue.json"
+    entries = [
+        queue.Entry(
+            title=f"Senior FastAPI Engineer {i}",
+            company="Acme",
+            url=f"https://x.example/jobs/view/{i}/",
+            alert_date="2026-07-29",
+        )
+        for i in range(fila.FILA_LIMIT + 30)
+    ]
+    queue.append_entries(entries, queue_path)
+    monkeypatch.setenv("MERIT_QUEUE_PATH", str(queue_path))
+    monkeypatch.setenv("MERIT_DB", str(tmp_path / "merit.db"))
+    monkeypatch.setenv("MERIT_PROFILE", str(PROFILE_FIXTURE))
+    return TestClient(create_app())
+
+
+def test_fila_caps_rendered_rows_and_shows_remainder(client_many):
+    # Integration-wave finding (2026-08-01 live smoke): 3274 hot rows rendered
+    # at once. The fila must cap what it renders and say how many more exist.
+    response = client_many.get("/fila")
+    assert response.status_code == 200
+    assert response.text.count("data-row") <= fila.FILA_LIMIT
+    assert "mais 30 na fila" in response.text
