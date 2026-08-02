@@ -161,3 +161,28 @@ def append_entries(new: Iterable[Entry], path: Path) -> list[Entry]:
     tmp_path.chmod(0o600)
     tmp_path.replace(path)
     return added
+
+
+def discard(path: Path, url: str) -> bool:
+    """Remove the entry matching url (by dedupe_key) from the queue file."""
+    target = dedupe_key(url)
+    entries = load_entries(path)
+    remaining = [entry for entry in entries if dedupe_key(entry.url) != target]
+    if len(remaining) == len(entries):
+        return False
+    rows = [
+        {
+            "title": entry.title,
+            "company": entry.company,
+            "url": entry.url,
+            "alert_date": entry.alert_date,
+            "location": entry.location,
+        }
+        for entry in remaining
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_name(path.name + ".tmp")
+    tmp_path.write_text(json.dumps(rows, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    tmp_path.chmod(0o600)
+    tmp_path.replace(path)
+    return True
