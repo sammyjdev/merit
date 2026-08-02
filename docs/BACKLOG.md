@@ -1,6 +1,9 @@
 # MERIT backlog and next steps
 
-Status snapshot (2026-07-30, wave 2 sealed): phase 1 + operational + hardening/dossier waves done. On master:
+Status snapshot (2026-08-01): v0.3a UI SHIPPED - merit serve (FastAPI+htmx,
+localhost-only, CSP-clean) with Fila/Pipeline/Dossie views, keyboard nav,
+LaunchAgent installer; integrated from 4 parallel executor lanes (PRs
+#18-#21) with zero merge conflicts. Previous waves: On master:
 six-node graph, CLI (match/resume/rank/queue/track/ingest-mail), security
 hardening, CI gate. Golden evaluation passed (agreement >= 80%, 29 postings /
 114 pinned verdicts). Live-validated against the owner's real mailbox:
@@ -8,9 +11,13 @@ hardening, CI gate. Golden evaluation passed (agreement >= 80%, 29 postings /
 1340 alert digests parsed into a 7024-row triage queue, application ledger
 smoke-tested end to end.
 
-## Next in the loop (forge)
+## Next in the loop
 
-- Nothing queued. Issues #14 (hardening) and #15 (dossier) shipped and
+- [ ] Lane E (v0.3b): claude-subscription + vertex model backends + OTel
+      instrumentation of serve (dispatched 2026-08-01).
+- [ ] v0.25 evals (LangSmith dataset + GNOMON judge) - after v0.3b.
+- [ ] v1.0 METRON benchmark - pre-registration gate with the owner.
+- Previously: Issues #14 (hardening) and #15 (dossier) shipped and
   live-validated 2026-07-30: incremental rescan 97s -> 3.3s on unchanged
   mailbox; dossier smoke-tested on a real application (legacy row upgraded,
   jd.md seeded from the ingested posting).
