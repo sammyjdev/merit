@@ -1,0 +1,131 @@
+/* Per-view styles - extracted from templates at integration:
+   CSP default-src 'self' blocks inline <style> blocks in browsers. */
+
+/* view: fila */
+.fila-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.fila-row + .fila-row { margin-top: 8px; }
+.fila-meta { grid-column: 1; color: var(--muted); }
+.fila-actions { display: flex; gap: 4px; }
+
+/* view: pipeline */
+.pipeline-kanban {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  align-items: flex-start;
+  padding-bottom: 16px;
+}
+.pipeline-column {
+  flex: 0 0 240px;
+  min-width: 200px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.column-header {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ink);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.column-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pipeline-card {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: var(--shadow);
+}
+.pipeline-card.selected {
+  outline: 2px solid var(--accent);
+  background: var(--accent-weak);
+}
+.card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.card-title {
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+.card-title:hover {
+  color: var(--accent);
+}
+.card-company {
+  color: var(--muted);
+  font-size: 13px;
+}
+.card-meta {
+  font-size: 12px;
+}
+.card-date {
+  font-family: var(--mono);
+  color: var(--muted);
+}
+.card-actions {
+  margin-top: 4px;
+}
+.card-actions select {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 13px;
+}
+.pipeline-empty {
+  padding: 32px;
+  text-align: center;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+/* view: dossie */
+.dossie-list, .dossie-panels { display: grid; gap: 16px; }
+.dossie-row, .dossie-panel, .log-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.dossie-row { display: flex; justify-content: space-between; gap: 16px; }
+.dossie-stepper { display: flex; flex-wrap: wrap; gap: 8px; }
+.dossie-stepper form { margin: 0; }
+.dossie-stepper button {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--ink);
+  padding: 4px 8px;
+}
+.dossie-panel pre, .log-body { white-space: pre-wrap; }
+.log-entry + .log-entry { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 12px; }
+.mono { font-family: var(--mono); }
+.log-panel form { display: grid; gap: 8px; margin-top: 16px; }

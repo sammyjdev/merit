@@ -2,7 +2,7 @@
   {% for e in hot %}
   <article class="fila-row" data-row>
     <a href="{{ e.url }}" target="_blank" rel="noopener" data-open>{{ e.title }}</a>
-    <span style="font-family: var(--mono)">{{ e.score }}</span>
+    <span class="mono">{{ e.score }}</span>
     <span class="fila-meta">{{ e.company or "empresa desconhecida" }}</span>
     <span class="fila-actions">
       <form hx-post="/fila/discard" hx-target="#fila-rows" hx-swap="outerHTML">

@@ -1,21 +1,5 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>fila</h1>
-<style>
-.fila-row {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 8px;
-  align-items: center;
-  padding: 12px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-}
-.fila-row + .fila-row { margin-top: 8px; }
-.fila-meta { grid-column: 1; color: var(--muted); }
-.fila-actions { display: flex; gap: 4px; }
-</style>
 {% include "_fila_rows.html" %}
 {% endblock %}

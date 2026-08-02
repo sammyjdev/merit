@@ -1,28 +1,5 @@
 {% extends "base.html" %}
 {% block content %}
-<style>
-.dossie-list, .dossie-panels { display: grid; gap: 16px; }
-.dossie-row, .dossie-panel, .log-panel {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 16px;
-}
-.dossie-row { display: flex; justify-content: space-between; gap: 16px; }
-.dossie-stepper { display: flex; flex-wrap: wrap; gap: 8px; }
-.dossie-stepper form { margin: 0; }
-.dossie-stepper button {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  color: var(--ink);
-  padding: 4px 8px;
-}
-.dossie-panel pre, .log-body { white-space: pre-wrap; }
-.log-entry + .log-entry { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 12px; }
-.mono { font-family: var(--mono); }
-.log-panel form { display: grid; gap: 8px; margin-top: 16px; }
-</style>
 
 {% if not_found %}
 <p>aplicacao nao encontrada</p>
