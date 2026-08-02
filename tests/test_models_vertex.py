@@ -62,6 +62,10 @@ def test_vertex_missing_project_raises(monkeypatch):
 def test_missing_vertex_sdk_raises_named_error(monkeypatch):
     monkeypatch.setenv("MERIT_MODEL", "vertex")
     monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "test-project")
+    # Simulate the package being absent even when the extra is installed in
+    # this venv (sys.modules None entry makes the import raise ImportError).
+    import sys
+    monkeypatch.setitem(sys.modules, "langchain_google_vertexai", None)
 
     with pytest.raises(
         models.VertexBackendUnavailable,

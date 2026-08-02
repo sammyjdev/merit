@@ -15,7 +15,9 @@ from merit.schemas import Demands, ResidueVerdicts
 
 DEEPINFRA_BASE = "https://api.deepinfra.com/v1/openai"
 DEFAULT_CLAUDE_SUBSCRIPTION_MODEL = "claude-sonnet-4-5"
-DEFAULT_VERTEX_MODEL = "gemini-2.0-flash-001"
+# Verified live on Vertex us-central1 (2026-08-02): 2.0-flash-001 is retired,
+# 2.5 family responds. Override with MERIT_VERTEX_MODEL.
+DEFAULT_VERTEX_MODEL = "gemini-2.5-flash"
 
 
 class ClaudeSubscriptionUnavailable(RuntimeError):
@@ -128,7 +130,7 @@ def build_chat_model(temperature: float = 0.0) -> BaseChatModel:
     if backend == "vertex":
         chat_vertex_ai = _load_vertex_chat_model()
         return chat_vertex_ai(
-            model=DEFAULT_VERTEX_MODEL,
+            model=os.environ.get("MERIT_VERTEX_MODEL", DEFAULT_VERTEX_MODEL),
             project=_env("GOOGLE_CLOUD_PROJECT"),
             location=os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1"),
             temperature=temperature,
