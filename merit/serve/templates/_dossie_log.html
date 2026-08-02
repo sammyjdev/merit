@@ -1,0 +1,19 @@
+<section class="log-panel" data-log="{{ log_file }}">
+  {% if not has_dossier %}
+  <p class="muted">sem dossie - registre a primeira entrada</p>
+  {% elif log_entries %}
+  {% for stamp, body in log_entries %}
+  <article class="log-entry">
+    <span class="mono">{{ stamp }}</span>
+    <div class="log-body">{{ body }}</div>
+  </article>
+  {% endfor %}
+  {% else %}
+  <p class="muted">sem registros ainda</p>
+  {% endif %}
+  <form hx-post="/dossie/{{ app_id }}/log" hx-target="closest .log-panel" hx-swap="outerHTML" method="post">
+    <input type="hidden" name="file" value="{{ log_file }}">
+    <textarea name="text" required></textarea>
+    <button type="submit">registrar</button>
+  </form>
+</section>

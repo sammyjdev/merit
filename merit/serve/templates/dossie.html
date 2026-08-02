@@ -1,5 +1,88 @@
 {% extends "base.html" %}
 {% block content %}
+<style>
+.dossie-list, .dossie-panels { display: grid; gap: 16px; }
+.dossie-row, .dossie-panel, .log-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.dossie-row { display: flex; justify-content: space-between; gap: 16px; }
+.dossie-stepper { display: flex; flex-wrap: wrap; gap: 8px; }
+.dossie-stepper form { margin: 0; }
+.dossie-stepper button {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--ink);
+  padding: 4px 8px;
+}
+.dossie-panel pre, .log-body { white-space: pre-wrap; }
+.log-entry + .log-entry { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 12px; }
+.mono { font-family: var(--mono); }
+.log-panel form { display: grid; gap: 8px; margin-top: 16px; }
+</style>
+
+{% if not_found %}
+<p>aplicacao nao encontrada</p>
+
+{% elif row is defined and row %}
+<header>
+  <h1>{{ row.title }}</h1>
+  <p class="muted">{{ row.company }}</p>
+</header>
+
+<section class="dossie-stepper" aria-label="status">
+  {% for s in statuses %}
+  <form method="post" action="/dossie/{{ row.id }}/status">
+    <input type="hidden" name="status" value="{{ s }}">
+    <button type="submit" data-status="{{ s }}"{% if s == row.status %} data-current="true"{% endif %}>{{ s }}</button>
+  </form>
+  {% endfor %}
+</section>
+
+<div class="dossie-panels">
+  <section class="dossie-panel">
+    <h2>JD</h2>
+    {% if jd_text %}
+    <pre>{{ jd_text }}</pre>
+    {% else %}
+    <p class="muted">sem dossie - registre a primeira entrada</p>
+    {% endif %}
+  </section>
+
+  <section class="dossie-panel">
+    <h2>thread</h2>
+    {% set log_file = "thread" %}
+    {% set log_entries = thread_entries %}
+    {% include "_dossie_log.html" %}
+  </section>
+
+  <section class="dossie-panel">
+    <h2>notas</h2>
+    {% set log_file = "notes" %}
+    {% set log_entries = notes_entries %}
+    {% include "_dossie_log.html" %}
+  </section>
+</div>
+
+{% else %}
 <h1>dossie</h1>
-<p class="muted">Wave 0 stub - implemented by its lane.</p>
+{% if applications %}
+<div class="dossie-list">
+  {% for application in applications %}
+  <article class="dossie-row" data-row>
+    <div>
+      <a data-open href="/dossie/{{ application.id }}">{{ application.title }}</a>
+      <p class="muted">{{ application.company }}</p>
+    </div>
+    <span class="mono">{{ application.status }}</span>
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+<p class="muted">sem aplicacoes ainda</p>
+{% endif %}
+{% endif %}
 {% endblock %}
