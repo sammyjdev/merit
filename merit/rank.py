@@ -3,6 +3,8 @@ profile's alias table and skill names. No LLM, no network, no persistence -
 reconnaissance only, so the owner can pick which postings deserve `merit match`.
 """
 import re
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import NamedTuple
 
@@ -15,6 +17,39 @@ WEIGHTS = {"strong": 2, "partial": 1, "gap": -1}
 _FRONTMATTER_RE = re.compile(r"\A---\r?\n(.*?)\r?\n---\r?\n", re.DOTALL)
 _SUBJECT_RE = re.compile(r"^subject:[ \t]*(.+?)[ \t]*$", re.MULTILINE)
 _HEADING_RE = re.compile(r"^#[ \t]+(.+?)[ \t]*$", re.MULTILINE)
+_DATE_RE = re.compile(r"^date:[ \t]*(.+?)[ \t]*$", re.MULTILINE)
+
+# ponytail: verbatim keyword scan; hybrid beats onsite because hybrid postings
+# mention the office days too. No signal = unknown, never a guess.
+_WORKPLACE = (
+    ("hybrid", re.compile(r"\bhybrid\b|\bh[ií]brid[oa]\b", re.IGNORECASE)),
+    ("onsite", re.compile(r"\bon-?site\b|\bpresencial\b|\bin-office\b", re.IGNORECASE)),
+    ("remote", re.compile(r"\bremot[eoa]\b|\bhome office\b", re.IGNORECASE)),
+)
+
+
+def classify_workplace(text: str) -> str:
+    for label, pattern in _WORKPLACE:
+        if pattern.search(text):
+            return label
+    return "unknown"
+
+
+def posting_age_days(text: str) -> int | None:
+    """Age from the mail frontmatter date header; None when absent/unparseable."""
+    frontmatter = _FRONTMATTER_RE.match(text)
+    if not frontmatter:
+        return None
+    date_line = _DATE_RE.search(frontmatter.group(1))
+    if not date_line:
+        return None
+    try:
+        sent = parsedate_to_datetime(date_line.group(1))
+    except (ValueError, TypeError):
+        return None
+    if sent.tzinfo is None:
+        sent = sent.replace(tzinfo=UTC)
+    return max(0, (datetime.now(UTC) - sent).days)
 
 
 class Row(NamedTuple):
@@ -24,6 +59,8 @@ class Row(NamedTuple):
     partial: int
     gap: int
     score: int
+    workplace: str = "unknown"
+    age_days: int | None = None
 
 
 def extract_title(text: str, fallback: str) -> str:
@@ -95,7 +132,18 @@ def rank_dir(profile: Profile, directory: Path) -> tuple[list[Row], list[str]]:
             continue
         strong, partial, gap, score = score_text(profile, text, terms)
         title = extract_title(text, path.stem)
-        rows.append(Row(path.name, title, strong, partial, gap, score))
+        rows.append(
+            Row(
+                path.name,
+                title,
+                strong,
+                partial,
+                gap,
+                score,
+                classify_workplace(text),
+                posting_age_days(text),
+            )
+        )
     rows.sort(key=lambda r: (-r.score, r.file))
     return rows, skipped
 

@@ -202,3 +202,39 @@ def test_queue_write_is_atomic_and_leaves_no_tmp_file(tmp_path):
     assert not list(tmp_path.glob("*.tmp"))
     mode = path.stat().st_mode
     assert mode & 0o077 == 0
+
+
+def test_is_stale_by_alert_date():
+    from datetime import date, timedelta
+
+    old = queue.Entry(title="X", company=None, url="u1", alert_date="2026-01-01")
+    fresh = queue.Entry(
+        title="Y", company=None, url="u2",
+        alert_date=(date.today() - timedelta(days=3)).isoformat(),
+    )
+    undated = queue.Entry(title="Z", company=None, url="u3", alert_date=None)
+
+    assert queue.is_stale(old, days=30) is True
+    assert queue.is_stale(fresh, days=30) is False
+    assert queue.is_stale(undated, days=30) is False  # no evidence, keep it
+
+
+def test_prune_drops_stale_entries_and_reports(tmp_path):
+    from datetime import date, timedelta
+
+    path = tmp_path / "queue.json"
+    fresh_date = (date.today() - timedelta(days=3)).isoformat()
+    queue.append_entries(
+        [
+            queue.Entry(title="old", company=None, url="u1", alert_date="2026-01-01"),
+            queue.Entry(title="new", company=None, url="u2", alert_date=fresh_date),
+            queue.Entry(title="undated", company=None, url="u3", alert_date=None),
+        ],
+        path,
+    )
+
+    removed = queue.prune(path, days=30)
+
+    assert removed == 1
+    remaining = {e.title for e in queue.load_entries(path)}
+    assert remaining == {"new", "undated"}

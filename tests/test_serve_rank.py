@@ -41,7 +41,8 @@ def client(tmp_path, monkeypatch):
 
 
 def test_rank_lists_postings_sorted_by_score(client):
-    response = client.get("/rank")
+    # weak postings hide by default; ?hidden=1 shows the full ordering
+    response = client.get("/rank?hidden=1")
 
     assert response.status_code == 200
     body = response.text
@@ -53,7 +54,7 @@ def test_rank_lists_postings_sorted_by_score(client):
 def test_rank_rows_have_keyboard_contract(client):
     body = client.get("/rank").text
 
-    assert body.count("data-row") == 2
+    assert body.count("data-row") == 1  # initech (score <= 0) filtered out
     assert "5 Rank" not in body  # funnel order: rank is view 2
     assert "2 Rank" in body
 
@@ -135,3 +136,84 @@ def test_rank_lists_skipped_files(client, tmp_path):
 
     body = client.get("/rank").text
     assert "broken.md" in body
+
+
+ONSITE_POSTING = """---
+subject: FastAPI Dev - Presencial SP
+---
+# FastAPI Dev
+
+FastAPI, atuacao presencial em Sao Paulo.
+"""
+
+STALE_POSTING = """---
+subject: FastAPI Contractor
+date: Thu, 01 Jan 2026 10:00:00 +0000
+---
+# FastAPI Contractor
+
+FastAPI project, started long ago.
+"""
+
+
+@pytest.fixture
+def client_filters(tmp_path, monkeypatch):
+    inbox = tmp_path / "inbox"
+    inbox.mkdir()
+    (inbox / "acme.md").write_text(STRONG_POSTING, encoding="utf-8")
+    (inbox / "initech.md").write_text(GAP_POSTING, encoding="utf-8")
+    (inbox / "onsite.md").write_text(ONSITE_POSTING, encoding="utf-8")
+    (inbox / "stale.md").write_text(STALE_POSTING, encoding="utf-8")
+    monkeypatch.setenv("MERIT_INBOX", str(inbox))
+    monkeypatch.setenv("MERIT_DB", str(tmp_path / "merit.db"))
+    monkeypatch.setenv("MERIT_PROFILE", str(PROFILE_FIXTURE))
+    return TestClient(create_app())
+
+
+def test_rank_hides_onsite_stale_and_weak_by_default(client_filters):
+    body = client_filters.get("/rank").text
+
+    assert "Senior FastAPI Engineer - Acme" in body
+    assert "Presencial SP" not in body           # onsite hidden
+    assert "FastAPI Contractor" not in body      # 30+ days hidden
+    assert "PyTorch Researcher" not in body      # score <= 0 hidden
+    assert "1 on-site" in body
+    assert "1 antigas" in body
+    assert "1 fracas" in body
+
+
+def test_rank_hidden_toggle_reveals_all(client_filters):
+    body = client_filters.get("/rank?hidden=1").text
+
+    assert "Presencial SP" in body
+    assert "FastAPI Contractor" in body
+    assert "PyTorch Researcher" in body
+
+
+def test_rank_tracked_posting_leaves_default_list_with_counter(client_filters, tmp_path):
+    client_filters.post(
+        "/rank/track",
+        data={"file": "acme.md", "title": "Senior FastAPI Engineer - Acme"},
+        follow_redirects=False,
+    )
+
+    body = client_filters.get("/rank").text
+    assert "Senior FastAPI Engineer - Acme" not in body
+    assert "1 acompanhando" in body
+
+    revealed = client_filters.get("/rank?hidden=1").text
+    assert "Senior FastAPI Engineer - Acme" in revealed
+    assert "/dossie/1" in revealed
+
+
+def test_rank_discard_moves_file_out_of_inbox(client_filters, tmp_path):
+    response = client_filters.post("/rank/discard", data={"file": "acme.md"})
+
+    assert response.status_code == 200
+    assert "Senior FastAPI Engineer - Acme" not in response.text
+    assert not (tmp_path / "inbox" / "acme.md").exists()
+    assert (tmp_path / "inbox" / "discarded" / "acme.md").exists()
+
+
+def test_rank_discard_rejects_traversal(client_filters):
+    assert client_filters.post("/rank/discard", data={"file": "../x.md"}).status_code == 404

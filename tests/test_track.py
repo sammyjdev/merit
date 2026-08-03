@@ -245,3 +245,15 @@ def test_add_never_touches_network_or_filesystem_for_source(tmp_path, monkeypatc
     with track._conn(db_path) as conn:
         row = conn.execute("SELECT source FROM applications WHERE id = 1").fetchone()
     assert row["source"] == missing_path
+
+
+def test_sources_maps_source_to_app_id(tmp_path):
+    db = str(tmp_path / "t.db")
+    a = track.add(db, "corpus/inbox/a.md", title="A")
+    b = track.add(db, "https://x.example/1", title="B")
+
+    assert track.sources(db) == {"corpus/inbox/a.md": a, "https://x.example/1": b}
+
+
+def test_sources_empty_db(tmp_path):
+    assert track.sources(str(tmp_path / "t.db")) == {}

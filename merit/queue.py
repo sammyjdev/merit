@@ -5,6 +5,7 @@ import json
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
+from datetime import date, timedelta
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -81,6 +82,43 @@ def parse_alert(html: str, alert_date: str) -> list[Entry]:
             )
         )
     return entries
+
+
+def is_stale(entry: Entry, days: int = 30) -> bool:
+    """Older than `days` by alert_date; undated entries are never stale
+    (no evidence beats a guess)."""
+    if not entry.alert_date:
+        return False
+    cutoff = (date.today() - timedelta(days=days)).isoformat()
+    return entry.alert_date < cutoff
+
+
+def prune(path: Path, days: int = 30) -> int:
+    """Drop stale entries from the queue file; returns how many were removed."""
+    entries = load_entries(path)
+    remaining = [entry for entry in entries if not is_stale(entry, days)]
+    removed = len(entries) - len(remaining)
+    if removed:
+        _write_entries(path, remaining)
+    return removed
+
+
+def _write_entries(path: Path, entries: list[Entry]) -> None:
+    rows = [
+        {
+            "title": entry.title,
+            "company": entry.company,
+            "url": entry.url,
+            "alert_date": entry.alert_date,
+            "location": entry.location,
+        }
+        for entry in entries
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_name(path.name + ".tmp")
+    tmp_path.write_text(json.dumps(rows, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    tmp_path.chmod(0o600)
+    tmp_path.replace(path)
 
 
 def is_hot(title: str, terms: Iterable[str]) -> bool:

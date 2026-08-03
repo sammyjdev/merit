@@ -277,6 +277,15 @@ def show_markdown(db_path: str, app_id: int) -> str:
     return "\n".join(lines)
 
 
+def sources(db_path: str) -> dict[str, int]:
+    """Map application source -> id, for marking already-tracked postings."""
+    with contextlib.closing(_conn(db_path)) as conn:
+        return {
+            row["source"]: row["id"]
+            for row in conn.execute("SELECT source, id FROM applications ORDER BY id")
+        }
+
+
 def list_markdown(db_path: str, status: str | None = None) -> str:
     if status is not None:
         _validate(status)

@@ -1,4 +1,10 @@
-"""Fila view."""
+"""Fila view.
+
+Preventive filters (owner-approved 2026-08-03, same grammar as rank): stale
+(30+ days), on-site-in-title and frias (score <= 0) leave the default list -
+counted in the header, revealed with ?hidden=1. Alerts carry no body, so the
+score and the workplace signal come from the title alone.
+"""
 import os
 from dataclasses import asdict
 from pathlib import Path
@@ -6,13 +12,14 @@ from urllib.parse import parse_qs
 
 from fastapi import APIRouter, Request, Response
 
-from merit import profile, queue, track
+from merit import profile, queue, rank, track
 from merit.serve import rendering
 
 router = APIRouter()
 
 # Integration-wave cap (live smoke 2026-08-01: 3274 hot rows rendered at once).
 FILA_LIMIT = 50
+STALE_DAYS = 30
 
 
 def _queue_path() -> Path:
@@ -33,19 +40,47 @@ def _profile_path() -> str:
     return os.environ.get("MERIT_PROFILE", "profile/profile.yaml")
 
 
-def _rows(show_cold: bool) -> dict:
+def _reason(entry: queue.Entry, score: int) -> str | None:
+    # Digests fold location into the company string ("Acme - SP (On-site)"),
+    # so the workplace signal lives in title + company.
+    if rank.classify_workplace(f"{entry.title} {entry.company or ''}") == "onsite":
+        return "on-site"
+    if queue.is_stale(entry, days=STALE_DAYS):
+        return "antiga"
+    if score <= 0:
+        return "fria"
+    return None
+
+
+def _rows(show_hidden: bool) -> dict:
     entries = queue.load_entries(_queue_path())
     profile_path = _profile_path()
-    terms = profile.strong_terms(profile.load_profile(profile_path)) if Path(profile_path).is_file() else []
-    hot_entries = [entry for entry in entries if queue.is_hot(entry.title, terms)]
-    cold = [entry for entry in entries if not queue.is_hot(entry.title, terms)]
-    hot = [
-        {**asdict(entry), "score": sum(term in entry.title.lower() for term in set(terms))}
-        for entry in hot_entries
-    ]
-    hot.sort(key=lambda entry: entry["score"], reverse=True)
-    hot_more = max(0, len(hot) - FILA_LIMIT)
-    return {"hot": hot[:FILA_LIMIT], "hot_more": hot_more, "cold": cold, "show_cold": show_cold}
+    prof = profile.load_profile(profile_path) if Path(profile_path).is_file() else None
+
+    annotated = []
+    counts = {"onsite": 0, "stale": 0, "cold": 0}
+    for entry in entries:
+        score = rank.score_text(prof, entry.title)[3] if prof else 0
+        reason = _reason(entry, score)
+        if reason == "on-site":
+            counts["onsite"] += 1
+        elif reason == "antiga":
+            counts["stale"] += 1
+        elif reason == "fria":
+            counts["cold"] += 1
+        annotated.append({**asdict(entry), "score": score, "reason": reason})
+
+    annotated.sort(key=lambda e: e["score"], reverse=True)
+    visible = [e for e in annotated if e["reason"] is None]
+    displayed = annotated if show_hidden else visible
+    return {
+        "rows": displayed[:FILA_LIMIT],
+        "more": max(0, len(displayed) - FILA_LIMIT),
+        "total": len(annotated),
+        "visible_n": len(visible),
+        "counts": counts,
+        "show_hidden": show_hidden,
+    }
 
 
 @router.get("/fila")
@@ -53,7 +88,7 @@ async def fila(request: Request):
     return rendering.page(
         request,
         "fila.html",
-        {"view": "fila", **_rows(request.query_params.get("all") == "1")},
+        {"view": "fila", **_rows(request.query_params.get("hidden") == "1")},
     )
 
 
@@ -62,7 +97,7 @@ async def discard(request: Request):
     form = parse_qs((await request.body()).decode(), keep_blank_values=True)
     url = form["url"][0]
     queue.discard(_queue_path(), url)
-    return rendering.templates.TemplateResponse(request, "_fila_rows.html", _rows(show_cold=False))
+    return rendering.templates.TemplateResponse(request, "_fila_rows.html", _rows(show_hidden=False))
 
 
 @router.post("/fila/track")

@@ -33,6 +33,17 @@
 .rank-row.selected { outline: 2px solid var(--accent); }
 .rank-row details { min-width: 0; }
 .rank-row summary { display: flex; gap: 12px; align-items: center; cursor: pointer; }
+.rank-row summary::before { content: "\25B8"; color: var(--muted); font-size: 12px; }
+.rank-row details[open] summary::before { content: "\25BE"; }
+.rank-reason {
+  color: var(--muted);
+  font-size: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1px 6px;
+}
+.rank-actions { display: flex; gap: 4px; align-items: center; }
+.rank-counts a { margin-left: 8px; }
 .rank-title { flex: 1; }
 .rank-score { font-weight: 600; }
 .chip-strong { color: var(--accent); }

@@ -58,6 +58,29 @@ detail endpoint only; `rank_dir`/`Row` unchanged.
 - Inbox dir via `MERIT_INBOX` env (default `corpus/inbox`), same pattern as
   the other serve paths. CSP/autoescape contract unchanged; no inline styles.
 
+## Update 2026-08-03 (owner-approved): preventive filters + linear progression
+
+Both list views adopt the same grammar - hidden groups leave the default
+list, always counted in a header line with a `?hidden=1` reveal toggle,
+never silently dropped:
+
+- **Rank (InMails, body available):** hidden groups are `acompanhando`
+  (tracked - source match in the applications table, row links to the
+  dossier), `on-site` (`rank.classify_workplace`, hybrid wins over onsite,
+  no signal = unknown = visible), `antiga` (frontmatter date, 30+ days via
+  `rank.posting_age_days`) and `fraca` (score <= 0). Discard action moves
+  the file to `corpus/inbox/discarded/` - filesystem is the state, glob
+  does the filtering.
+- **Fila (alerts, title only):** score upgraded from strong-term count to
+  full `rank.score_text` on the title; hidden groups `on-site` (title
+  signal only - the digest carries no location, verified on 7004 entries),
+  `antiga` (`queue.is_stale`, alert_date 30+ days) and `fria` (score <= 0).
+- **CLI:** `merit queue --prune-days N` physically drops stale entries.
+- **Active-check stays out permanently:** validating "still accepting
+  applications" requires fetching LinkedIn URLs = scraping (banned; login
+  walls/999 make it unreliable anyway). Age is the honest proxy; the real
+  check is the owner clicking the finalists.
+
 ## Out of scope
 
 Filters/search, profile editing, per-row `merit match` trigger (interrupt

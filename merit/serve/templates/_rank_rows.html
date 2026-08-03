@@ -1,9 +1,17 @@
 <div id="rank-rows">
+  <p class="muted rank-counts">
+    {{ total }} no inbox · {{ visible_n }} visiveis ·
+    {{ counts.onsite }} on-site · {{ counts.stale }} antigas ·
+    {{ counts.weak }} fracas · {{ counts.tracked }} acompanhando
+    {% if show_hidden %}<a href="/rank">ocultar filtradas</a>{% else %}<a href="/rank?hidden=1">mostrar ocultas</a>{% endif %}
+  </p>
   {% for r in rows %}
   <article class="rank-row" data-row>
     <details hx-get="/rank/posting/{{ r.file }}" hx-trigger="toggle once" hx-target="find .rank-detail" hx-swap="outerHTML">
       <summary>
         <span class="rank-title">{{ r.title }}</span>
+        {% if r.reason %}<span class="rank-reason">{{ r.reason }}</span>{% endif %}
+        {% if r.age_days is not none %}<span class="chip-partial mono">{{ r.age_days }}d</span>{% endif %}
         <span class="chip-strong mono">{{ r.strong }}F</span>
         <span class="chip-partial mono">{{ r.partial }}P</span>
         <span class="{% if r.gap %}chip-gap{% else %}chip-partial{% endif %} mono">{{ r.gap }}L</span>
@@ -11,17 +19,27 @@
       </summary>
       <div class="rank-detail"><p class="muted">carregando...</p></div>
     </details>
-    <form hx-post="/rank/track">
-      <input type="hidden" name="file" value="{{ r.file }}">
-      <input type="hidden" name="title" value="{{ r.title }}">
-      <button type="submit">acompanhar</button>
-    </form>
+    <span class="rank-actions">
+      {% if r.reason == "acompanhando" %}
+      <a href="/dossie/{{ r.app_id }}">dossie</a>
+      {% else %}
+      <form hx-post="/rank/track">
+        <input type="hidden" name="file" value="{{ r.file }}">
+        <input type="hidden" name="title" value="{{ r.title }}">
+        <button type="submit">acompanhar</button>
+      </form>
+      <form hx-post="/rank/discard" hx-target="#rank-rows" hx-swap="outerHTML">
+        <input type="hidden" name="file" value="{{ r.file }}">
+        <button type="submit">descartar</button>
+      </form>
+      {% endif %}
+    </span>
   </article>
   {% else %}
-  <p class="muted">inbox vazio - rode merit fetch para puxar as InMails</p>
+  <p class="muted">nada por aqui - rode merit fetch para puxar as InMails{% if not show_hidden %} ou <a href="/rank?hidden=1">veja as ocultas</a>{% endif %}</p>
   {% endfor %}
   {% if more %}
-  <a href="/rank?all=1">mostrar todas ({{ total }})</a>
+  <a href="/rank?all=1{% if show_hidden %}&hidden=1{% endif %}">mostrar todas ({{ total if show_hidden else visible_n }})</a>
   {% endif %}
   {% if skipped %}
   <p class="muted">pulados: {% for s in skipped %}{{ s }}{% if not loop.last %} · {% endif %}{% endfor %}</p>

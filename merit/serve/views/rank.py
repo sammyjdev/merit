@@ -1,4 +1,9 @@
-"""Rank view: live deterministic scoring of the InMail inbox (spec 2026-08-03)."""
+"""Rank view: live deterministic scoring of the InMail inbox (spec 2026-08-03).
+
+Preventive filters (owner-approved 2026-08-03): tracked, on-site, stale (30+
+days) and weak (score <= 0) postings leave the default list - never silently,
+always counted in the header with a reveal toggle.
+"""
 import os
 from pathlib import Path
 from urllib.parse import parse_qs
@@ -12,6 +17,7 @@ router = APIRouter()
 
 # Same lesson as fila's FILA_LIMIT (live smoke 2026-08-01).
 RANK_LIMIT = 50
+STALE_DAYS = 30
 
 
 def _inbox_dir() -> Path:
@@ -42,22 +48,65 @@ def _posting_path(name: str) -> Path:
     return path
 
 
-@router.get("/rank")
-async def rank_page(request: Request):
+def _reason(row: rank.Row, tracked_id: int | None) -> str | None:
+    if tracked_id is not None:
+        return "acompanhando"
+    if row.workplace == "onsite":
+        return "on-site"
+    if row.age_days is not None and row.age_days > STALE_DAYS:
+        return "antiga"
+    if row.score <= 0:
+        return "fraca"
+    return None
+
+
+def _rows(show_hidden: bool, show_all: bool) -> dict:
     prof = profile.load_profile(_profile_path())
     rows, skipped = rank.rank_dir(prof, _inbox_dir())
-    show_all = request.query_params.get("all") == "1"
-    shown = rows if show_all else rows[:RANK_LIMIT]
+    tracked = track.sources(_db_path())
+    inbox = _inbox_dir()
+
+    annotated = []
+    counts = {"onsite": 0, "stale": 0, "weak": 0, "tracked": 0}
+    for row in rows:
+        app_id = tracked.get(str(inbox / row.file))
+        reason = _reason(row, app_id)
+        if reason == "acompanhando":
+            counts["tracked"] += 1
+        elif reason == "on-site":
+            counts["onsite"] += 1
+        elif reason == "antiga":
+            counts["stale"] += 1
+        elif reason == "fraca":
+            counts["weak"] += 1
+        annotated.append({**row._asdict(), "reason": reason, "app_id": app_id})
+
+    visible = [entry for entry in annotated if entry["reason"] is None]
+    displayed = annotated if show_hidden else visible
+    more = 0 if show_all else max(0, len(displayed) - RANK_LIMIT)
+    return {
+        "rows": displayed if show_all else displayed[:RANK_LIMIT],
+        "total": len(annotated),
+        "visible_n": len(visible),
+        "counts": counts,
+        "more": more,
+        "skipped": skipped,
+        "show_hidden": show_hidden,
+    }
+
+
+def _query_flags(request: Request) -> tuple[bool, bool]:
+    return (
+        request.query_params.get("hidden") == "1",
+        request.query_params.get("all") == "1",
+    )
+
+
+@router.get("/rank")
+async def rank_page(request: Request):
+    show_hidden, show_all = _query_flags(request)
     return rendering.page(
-        request,
-        "rank.html",
-        {
-            "view": "rank",
-            "rows": shown,
-            "total": len(rows),
-            "more": 0 if show_all else max(0, len(rows) - RANK_LIMIT),
-            "skipped": skipped,
-        },
+        request, "rank.html", {"view": "rank", **_rows(show_hidden, show_all)}
     )
 
 
@@ -88,3 +137,15 @@ async def track_posting(request: Request):
         dossier_root=_dossier_root(),
     )
     return Response(status_code=200, headers={"HX-Redirect": f"/dossie/{app_id}"})
+
+
+@router.post("/rank/discard")
+async def discard_posting(request: Request):
+    form = parse_qs((await request.body()).decode(), keep_blank_values=True)
+    path = _posting_path(form["file"][0])
+    dest = _inbox_dir() / "discarded"
+    dest.mkdir(exist_ok=True)
+    path.rename(dest / path.name)
+    return rendering.templates.TemplateResponse(
+        request, "_rank_rows.html", _rows(show_hidden=False, show_all=False)
+    )

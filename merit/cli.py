@@ -151,7 +151,12 @@ def queue_cmd(
     queue_path: str = typer.Option(str(queue.QUEUE_PATH), "--queue-path"),
     all_: bool = typer.Option(False, "--all"),
     profile: str = typer.Option(DEFAULT_PROFILE, "--profile"),
+    prune_days: int = typer.Option(0, "--prune-days", help="Drop entries older than N days"),
 ):
+    if prune_days:
+        removed = queue.prune(Path(queue_path), days=prune_days)
+        typer.echo(f"pruned {removed} entries older than {prune_days} days")
+        return
     entries = queue.load_entries(Path(queue_path))
     if not entries:
         typer.echo("No queued postings yet. Run `merit ingest-mail` to check for job alerts.")
