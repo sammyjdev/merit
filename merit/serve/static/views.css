@@ -193,6 +193,8 @@ a.vaga-title:hover { color: var(--accent); text-decoration: none; }
   flex-direction: column;
   gap: 8px;
 }
+.pipeline-card.card-cold { border-left: 2px solid var(--mid); }
+.idle-cold { color: var(--mid); }
 .pipeline-card.selected {
   box-shadow: inset 2px 0 0 var(--accent);
   background: var(--accent-weak);

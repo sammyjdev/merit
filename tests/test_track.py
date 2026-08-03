@@ -267,3 +267,38 @@ def test_count_active_excludes_terminal_statuses(tmp_path):
     track.set_status(db, rejected, "rejected")
 
     assert track.count_active(db) == 2
+
+
+def test_add_stores_thread_id_and_threads_maps(tmp_path):
+    db = str(tmp_path / "t.db")
+    a = track.add(db, "corpus/inbox/x.md", title="A", thread_id="2-X==")
+    track.add(db, "https://x.example/1", title="B")
+
+    assert track.threads(db) == {"2-X==": a}
+
+
+def test_log_touches_updated_at(tmp_path):
+    db = str(tmp_path / "t.db")
+    app_id = track.add(db, "s1", title="A", dossier_root=tmp_path / "d")
+    before = track.sources_status(db)  # warm read
+    import sqlite3
+
+    with sqlite3.connect(db) as conn:
+        conn.execute("UPDATE applications SET updated_at = '2020-01-01T00:00:00+00:00'")
+
+    track.log(db, app_id, "contato recebido", file="thread")
+
+    with sqlite3.connect(db) as conn:
+        updated = conn.execute("SELECT updated_at FROM applications").fetchone()[0]
+    assert updated > "2020-01-02"
+    assert before is not None
+
+
+def test_thread_backfill_primitives(tmp_path):
+    db = str(tmp_path / "t.db")
+    app_id = track.add(db, "corpus/x.md", title="V")
+    tracked = track.add(db, "corpus/y.md", title="W", thread_id="2-W==")
+
+    assert track.sources_without_thread(db) == {app_id: "corpus/x.md"}
+    track.set_thread_id(db, app_id, "2-Zz9==")
+    assert track.threads(db) == {"2-Zz9==": app_id, "2-W==": tracked}

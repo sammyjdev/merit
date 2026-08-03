@@ -32,12 +32,14 @@ _CREATE_TABLE_SQL = """
 """
 
 _ADD_COLUMN_SQL = "ALTER TABLE applications ADD COLUMN dossier_dir TEXT"
+_ADD_THREAD_SQL = "ALTER TABLE applications ADD COLUMN thread_id TEXT"
 
 _INSERT_SQL = """
     INSERT INTO applications
-        (source, title, company, status, note, session_id, created_at, updated_at)
+        (source, title, company, status, note, session_id, created_at, updated_at, thread_id)
     VALUES
-        (:source, :title, :company, :status, :note, :session_id, :created_at, :updated_at)
+        (:source, :title, :company, :status, :note, :session_id, :created_at, :updated_at,
+         :thread_id)
 """
 
 _UPDATE_SQL = """
@@ -149,6 +151,8 @@ def _conn(db_path: str) -> sqlite3.Connection:
     columns = {row["name"] for row in conn.execute("PRAGMA table_info(applications)")}
     if "dossier_dir" not in columns:
         conn.execute(_ADD_COLUMN_SQL)
+    if "thread_id" not in columns:
+        conn.execute(_ADD_THREAD_SQL)
     return conn
 
 
@@ -162,6 +166,7 @@ def add(
     note: str | None = None,
     session_id: str | None = None,
     dossier_root: str | Path | None = None,
+    thread_id: str | None = None,
 ) -> int:
     _validate(status)
     now = datetime.now(UTC).isoformat()
@@ -177,6 +182,7 @@ def add(
                 "session_id": session_id,
                 "created_at": now,
                 "updated_at": now,
+                "thread_id": thread_id,
             },
         )
         app_id = cur.lastrowid
@@ -223,6 +229,11 @@ def log(
         with path.open("a", encoding="utf-8") as fh:
             fh.write(f"\n## {stamp}\n\n{_escape_boundaries(body)}\n")
         path.chmod(FILE_MODE)
+        # A logged contact IS activity: the follow-up radar reads updated_at.
+        conn.execute(
+            "UPDATE applications SET updated_at = :now WHERE id = :id",
+            {"now": stamp, "id": app_id},
+        )
     return path
 
 
@@ -293,6 +304,35 @@ def sources(db_path: str) -> dict[str, int]:
             row["source"]: row["id"]
             for row in conn.execute("SELECT source, id FROM applications ORDER BY id")
         }
+
+
+def threads(db_path: str) -> dict[str, int]:
+    """Map LinkedIn thread_id -> application id (only rows that carry one)."""
+    with contextlib.closing(_conn(db_path)) as conn:
+        return {
+            row["thread_id"]: row["id"]
+            for row in conn.execute(
+                "SELECT thread_id, id FROM applications WHERE thread_id IS NOT NULL ORDER BY id"
+            )
+        }
+
+
+def sources_without_thread(db_path: str) -> dict[int, str]:
+    """Applications missing a thread_id, id -> source (for backfill by the CLI,
+    which owns the mail-parsing side; this module stays stdlib-only)."""
+    with contextlib.closing(_conn(db_path)) as conn:
+        return {
+            row["id"]: row["source"]
+            for row in conn.execute("SELECT id, source FROM applications WHERE thread_id IS NULL")
+        }
+
+
+def set_thread_id(db_path: str, app_id: int, thread_id: str) -> None:
+    with contextlib.closing(_conn(db_path)) as conn, conn:
+        conn.execute(
+            "UPDATE applications SET thread_id = :tid WHERE id = :id",
+            {"tid": thread_id, "id": app_id},
+        )
 
 
 def sources_status(db_path: str) -> dict[str, tuple[int, str]]:

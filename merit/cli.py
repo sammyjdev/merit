@@ -173,6 +173,23 @@ def ingest_mail(
         raise typer.Exit(1) from None
     finally:
         conn.logout()
+
+    # Replies inside already-tracked LinkedIn threads register as contact on
+    # the application's dossier instead of becoming new vagas.
+    by_thread = track.threads(_db_path())
+    events, raws = mail_module.match_conversations(raws, set(by_thread), Path(out_dir))
+    for event in events:
+        track.log(
+            _db_path(),
+            by_thread[event.thread],
+            f"[contato recebido - email] {event.subject} ({event.date})\n\n{event.body}",
+            file="thread",
+            dossier_root=_dossier_root(),
+        )
+        mail_module.mark_seen(Path(out_dir), event.key)
+    if events:
+        typer.echo(f"contatos registrados {len(events)}", err=True)
+
     ingested, skipped = ingest_messages(raws, Path(out_dir))
     queued, alert_skipped = ingest_alerts(raws, Path(queue_path))
     for item in ingested:
@@ -215,6 +232,20 @@ def queue_cmd(
             typer.echo(f"  {e.url}")
 
     typer.echo("\nFull match requires pasting the description: merit match -")
+
+
+@track_app.command("backfill-threads")
+def track_backfill_threads():
+    filled = 0
+    for app_id, source in track.sources_without_thread(_db_path()).items():
+        path = Path(source)
+        if not path.is_file():
+            continue
+        tid = mail_module.thread_id(path.read_text(encoding="utf-8", errors="replace"))
+        if tid:
+            track.set_thread_id(_db_path(), app_id, tid)
+            filled += 1
+    typer.echo(f"thread_id preenchido em {filled} candidaturas")
 
 
 @track_app.command("add")

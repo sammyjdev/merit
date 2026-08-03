@@ -212,3 +212,30 @@ def test_vagas_empty_state(tmp_path, monkeypatch):
     body = TestClient(create_app()).get("/vagas").text
 
     assert "merit fetch" in body
+
+
+INMAIL_WITH_THREAD = """---
+subject: Staff Engineer - Threadco
+---
+# Staff Engineer
+
+FastAPI role. Reply: https://www.linkedin.com/messaging/thread/2-TH1==/
+"""
+
+
+def test_vagas_track_inmail_captures_thread_id(tmp_path, monkeypatch):
+    inbox = tmp_path / "inbox"
+    inbox.mkdir()
+    (inbox / "threadco.md").write_text(INMAIL_WITH_THREAD, encoding="utf-8")
+    monkeypatch.setenv("MERIT_INBOX", str(inbox))
+    monkeypatch.setenv("MERIT_DB", str(tmp_path / "merit.db"))
+    monkeypatch.setenv("MERIT_PROFILE", str(PROFILE_FIXTURE))
+    client = TestClient(create_app())
+
+    client.post(
+        "/vagas/track",
+        data={"file": "threadco.md", "title": "Staff Engineer - Threadco"},
+        follow_redirects=False,
+    )
+
+    assert track.threads(str(tmp_path / "merit.db")) == {"2-TH1==": 1}

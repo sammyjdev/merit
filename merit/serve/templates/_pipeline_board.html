@@ -12,7 +12,7 @@
         </div>
         <div class="column-cards">
           {% for card in col.apps %}
-            <div class="pipeline-card" data-row>
+            <div class="pipeline-card{% if card.cold %} card-cold{% endif %}" data-row>
               <div class="card-header">
                 <a href="/dossie/{{ card.id }}" data-open class="card-title">{{ card.title }}</a>
                 {% if card.company %}
@@ -20,7 +20,11 @@
                 {% endif %}
               </div>
               <div class="card-meta">
+                {% if card.idle_days is not none %}
+                <span class="card-date{% if card.cold %} idle-cold{% endif %}">sem contato ha {{ card.idle_days }}d</span>
+                {% else %}
                 <span class="card-date">{{ card.updated_at }}</span>
+                {% endif %}
               </div>
               <div class="card-actions">
                 <select name="status"

@@ -549,3 +549,11 @@ def test_cursor_name_is_mailbox_scoped():
 
     assert cursor_name("InMail") == ".last-uid-inmail"
     assert cursor_name("Linkedin Jobs") == ".last-uid-linkedin-jobs"
+
+
+def test_thread_id_extracted_from_body():
+    from merit.mail import thread_id
+
+    body = "Reply here:\nhttps://www.linkedin.com/messaging/thread/2-AbC123==/\nBest,"
+    assert thread_id(body) == "2-AbC123=="
+    assert thread_id("no linkedin link at all") is None

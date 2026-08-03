@@ -16,7 +16,7 @@ from urllib.parse import parse_qs
 
 from fastapi import APIRouter, HTTPException, Request
 
-from merit import goldenset, profile, queue, rank, track
+from merit import goldenset, mail, profile, queue, rank, track
 from merit.serve import rendering
 
 router = APIRouter()
@@ -218,9 +218,13 @@ def _rows_partial(request: Request):
 async def track_vaga(request: Request):
     form = parse_qs((await request.body()).decode(), keep_blank_values=True)
     title = form["title"][0]
+    thread = None
     if "file" in form:
-        source = str(_posting_path(form["file"][0]))
+        path = _posting_path(form["file"][0])
+        source = str(path)
         company = None
+        # Thread id links future recruiter replies straight into the dossier.
+        thread = mail.thread_id(path.read_text(encoding="utf-8", errors="replace"))
     else:
         source = form["url"][0]
         company = form.get("company", [""])[0] or None
@@ -231,6 +235,7 @@ async def track_vaga(request: Request):
         company=company,
         status="queued",
         dossier_root=_dossier_root(),
+        thread_id=thread,
     )
     return _rows_partial(request)
 
