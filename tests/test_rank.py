@@ -273,3 +273,18 @@ def test_rank_dir_rows_carry_workplace_and_age(tmp_path):
     assert by_file["a.md"].age_days is not None and by_file["a.md"].age_days >= 0
     assert by_file["b.md"].workplace == "onsite"
     assert by_file["b.md"].age_days is None
+
+
+def test_rank_dir_rows_carry_thread(tmp_path):
+    _write(
+        tmp_path,
+        "a.md",
+        "# X\n\nFastAPI. https://www.linkedin.com/messaging/thread/2-AA==/",
+    )
+    _write(tmp_path, "b.md", "# Y\n\nFastAPI, no thread link.")
+
+    rows, _ = rank_dir(_profile(), tmp_path)
+    by_file = {r.file: r for r in rows}
+
+    assert by_file["a.md"].thread == "2-AA=="
+    assert by_file["b.md"].thread is None

@@ -86,7 +86,7 @@ def _alert_age(alert_date: str | None) -> int | None:
         return None
 
 
-def _inmail_rows(prof, tracked) -> tuple[list[dict], list[str]]:
+def _inmail_rows(prof, tracked, threads) -> tuple[list[dict], list[str], int]:
     all_rows, skipped = rank.rank_dir(prof, _inbox_dir())
     inbox = _inbox_dir()
     rows = []
@@ -94,6 +94,9 @@ def _inmail_rows(prof, tracked) -> tuple[list[dict], list[str]]:
         if r.age_days is not None and r.age_days > STALE_DAYS:
             continue  # stale is gone entirely (owner call 2026-08-03)
         app = tracked.get(str(inbox / r.file))
+        if app is None and r.thread and r.thread in threads:
+            # A reply inside an already-tracked conversation is not a new vaga.
+            app = threads[r.thread]
         rows.append(
             {
                 "source": "inmail",
@@ -104,11 +107,30 @@ def _inmail_rows(prof, tracked) -> tuple[list[dict], list[str]]:
                 "age_days": r.age_days,
                 "score": r.score,
                 "workplace": r.workplace,
+                "thread": r.thread,
                 "app_id": app[0] if app else None,
                 "state": app[1] if app else None,
             }
         )
-    return rows, skipped
+    # One row per conversation: messages sharing a thread collapse to the
+    # freshest one (visible in the counters, never a silent drop).
+    freshest: dict[str, dict] = {}
+    grouped = 0
+    deduped = []
+    for row in rows:
+        tid = row["thread"]
+        if not tid:
+            deduped.append(row)
+            continue
+        current = freshest.get(tid)
+        if current is None:
+            freshest[tid] = row
+            deduped.append(row)
+        else:
+            grouped += 1
+            if (row["age_days"] or 0) < (current["age_days"] or 0):
+                current.update(row)
+    return deduped, skipped, grouped
 
 
 def _alert_rows(prof, tracked) -> list[dict]:
@@ -128,11 +150,22 @@ def _alert_rows(prof, tracked) -> list[dict]:
                 "age_days": _alert_age(e.alert_date),
                 "score": score,
                 "workplace": rank.classify_workplace(f"{e.title} {e.company or ''}"),
+                "thread": None,
                 "app_id": app[0] if app else None,
                 "state": app[1] if app else None,
             }
         )
     return rows
+
+
+def _threads_status(tracked: dict[str, tuple[int, str]]) -> dict[str, tuple[int, str]]:
+    """thread_id -> (app_id, status), derived from the tracked map's ids."""
+    by_id = {app_id: (app_id, status) for app_id, status in tracked.values()}
+    return {
+        tid: by_id[app_id]
+        for tid, app_id in track.threads(_db_path()).items()
+        if app_id in by_id
+    }
 
 
 def _reason(row: dict) -> str | None:
@@ -148,11 +181,19 @@ def _reason(row: dict) -> str | None:
 def _rows(show_hidden: bool, show_all: bool, src: str | None) -> dict:
     prof = profile.load_profile(_profile_path()) if Path(_profile_path()).is_file() else None
     tracked = track.sources_status(_db_path())
-    inmails, skipped = _inmail_rows(prof, tracked) if prof else ([], [])
+    threads = _threads_status(tracked)
+    inmails, skipped, grouped = _inmail_rows(prof, tracked, threads) if prof else ([], [], 0)
     alerts = _alert_rows(prof, tracked)
     rows = inmails + alerts
 
-    counts = {"inmail": len(inmails), "alerta": len(alerts), "onsite": 0, "weak": 0, "tracked": 0}
+    counts = {
+        "inmail": len(inmails),
+        "alerta": len(alerts),
+        "onsite": 0,
+        "weak": 0,
+        "tracked": 0,
+        "grouped": grouped,
+    }
     for row in rows:
         row["reason"] = _reason(row)
         row["level"] = level(row["source"], row["score"])

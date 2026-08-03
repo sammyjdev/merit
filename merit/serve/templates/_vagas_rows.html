@@ -1,7 +1,7 @@
 <div id="vagas-rows">
   <p class="muted rank-counts">
     {{ visible_n }} para triar ·
-    {{ counts.onsite }} on-site · {{ counts.weak }} sem aderencia · {{ counts.tracked }} acompanhando
+    {{ counts.onsite }} on-site · {{ counts.weak }} sem aderencia · {{ counts.tracked }} acompanhando{% if counts.grouped %} · {{ counts.grouped }} agrupadas por conversa{% endif %}
     {% if show_hidden %}<a href="/vagas{% if src %}?src={{ src }}{% endif %}">ocultar filtradas</a>{% else %}<a href="/vagas?hidden=1{% if src %}&src={{ src }}{% endif %}">mostrar ocultas</a>{% endif %}
   </p>
   {% for v in rows %}

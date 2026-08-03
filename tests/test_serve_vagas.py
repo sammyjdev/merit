@@ -239,3 +239,27 @@ def test_vagas_track_inmail_captures_thread_id(tmp_path, monkeypatch):
     )
 
     assert track.threads(str(tmp_path / "merit.db")) == {"2-TH1==": 1}
+
+
+def test_vagas_groups_inmails_by_thread_keeping_freshest(tmp_path, monkeypatch):
+    inbox = tmp_path / "inbox"
+    inbox.mkdir()
+    thread = "https://www.linkedin.com/messaging/thread/2-SAME==/"
+    (inbox / "old.md").write_text(
+        f"---\nsubject: Staff Engineer - Threadco\ndate: Mon, 20 Jul 2026 10:00:00 +0000\n---\n"
+        f"# Staff Engineer\n\nFastAPI role. {thread}\n",
+        encoding="utf-8",
+    )
+    (inbox / "new.md").write_text(
+        f"---\nsubject: Message replied: Staff Engineer\ndate: Sun, 02 Aug 2026 10:00:00 +0000\n---\n"
+        f"# Message replied: Staff Engineer\n\nGreat, FastAPI it is! {thread}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("MERIT_INBOX", str(inbox))
+    monkeypatch.setenv("MERIT_DB", str(tmp_path / "merit.db"))
+    monkeypatch.setenv("MERIT_PROFILE", str(PROFILE_FIXTURE))
+    body = TestClient(create_app()).get("/vagas").text
+
+    assert body.count("data-row") == 1
+    assert "Message replied: Staff Engineer" in body   # freshest wins
+    assert "1 agrupadas" in body                       # grouping is visible, not silent

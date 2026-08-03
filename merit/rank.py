@@ -21,6 +21,15 @@ _DATE_RE = re.compile(r"^date:[ \t]*(.+?)[ \t]*$", re.MULTILINE)
 
 # ponytail: verbatim keyword scan; hybrid beats onsite because hybrid postings
 # mention the office days too. No signal = unknown, never a guess.
+# Same shape as mail.thread_id; duplicated to keep rank free of the mail module.
+_THREAD_RE = re.compile(r"linkedin\.com/messaging/thread/([A-Za-z0-9=_-]+)")
+
+
+def _thread_of(text: str) -> str | None:
+    match = _THREAD_RE.search(text)
+    return match.group(1) if match else None
+
+
 _WORKPLACE = (
     ("hybrid", re.compile(r"\bhybrid\b|\bh[ií]brid[oa]\b", re.IGNORECASE)),
     ("onsite", re.compile(r"\bon-?site\b|\bpresencial\b|\bin-office\b", re.IGNORECASE)),
@@ -61,6 +70,7 @@ class Row(NamedTuple):
     score: int
     workplace: str = "unknown"
     age_days: int | None = None
+    thread: str | None = None
 
 
 def extract_title(text: str, fallback: str) -> str:
@@ -142,6 +152,7 @@ def rank_dir(profile: Profile, directory: Path) -> tuple[list[Row], list[str]]:
                 score,
                 classify_workplace(text),
                 posting_age_days(text),
+                _thread_of(text),
             )
         )
     rows.sort(key=lambda r: (-r.score, r.file))
