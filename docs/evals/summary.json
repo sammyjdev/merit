@@ -1,0 +1,79 @@
+{
+  "model": "deepseek-ai/DeepSeek-V4-Flash-0731",
+  "seed": 7,
+  "excluded_rows": 0,
+  "arms": {
+    "A": {
+      "agreement": {
+        "mean": 0.9537,
+        "ci95": [
+          0.9044,
+          0.9916
+        ]
+      },
+      "tokens": {
+        "mean": 4257.2874,
+        "ci95": [
+          4110.069,
+          4411.3218
+        ]
+      },
+      "seconds": {
+        "mean": 6.1697,
+        "ci95": [
+          5.2076,
+          7.3657
+        ]
+      }
+    },
+    "B": {
+      "agreement": {
+        "mean": 0.9537,
+        "ci95": [
+          0.9044,
+          0.9916
+        ]
+      },
+      "tokens": {
+        "mean": 4257.1724,
+        "ci95": [
+          4110.3218,
+          4412.1954
+        ]
+      },
+      "seconds": {
+        "mean": 6.1249,
+        "ci95": [
+          5.296,
+          6.987
+        ]
+      }
+    }
+  },
+  "delta": {
+    "agreement": {
+      "mean": 0.0,
+      "ci95": [
+        0.0,
+        0.0
+      ]
+    },
+    "tokens": {
+      "mean": 0.1149,
+      "ci95": [
+        -14.1494,
+        14.8046
+      ]
+    },
+    "seconds": {
+      "mean": 0.0447,
+      "ci95": [
+        -0.6306,
+        0.8682
+      ]
+    }
+  },
+  "quality_verdict": "parity",
+  "token_overhead": 0.0,
+  "token_ceiling_breached": false
+}

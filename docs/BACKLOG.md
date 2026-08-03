@@ -13,8 +13,12 @@ smoke-tested end to end.
 
 ## Next in the loop
 
-- [ ] v1.0 METRON benchmark - NEXT. Pre-registration gate with the owner
-      before any run; executes on API engines for reproducibility.
+- Done 2026-08-03: **v1.0 SEALED** - merit-graph-vs-loop benchmark run per
+  frozen pre-registration (negative-flow reviewed, cross-vendor fairness
+  UNFAIR->FAIR cycle): quality PARITY (delta CI [0,0], agreement 95.4%
+  [90.4, 99.2]), token overhead 0.0%, latency tax indistinguishable from
+  zero (+45ms/6.1s, CI spans zero). Claim C-MERIT-001 published; Evals
+  view (4) renders docs/evals/summary.json.
 - [ ] PyPI publication as merit-fit (name verified free 2026-08-02; `merit`
       is taken) - owner decides when to seal.
 - [ ] Enhancement: GNOMON judge panel over report/narrative quality

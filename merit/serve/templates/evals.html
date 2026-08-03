@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Evals</h1>
+{% if summary %}
+<p>Benchmark merit-graph-vs-loop (pre-registrado, METRON) - engine <span class="mono">{{ summary.model }}</span></p>
+<p>Veredito de qualidade: <strong>{{ summary.quality_verdict }}</strong> ·
+   overhead de tokens: <span class="mono">{{ (summary.token_overhead * 100) | round(1) }}%</span></p>
+<table>
+  <tr><th>Metrica</th><th>ARM A (LangGraph)</th><th>ARM B (loop)</th><th>Delta A-B (CI 95%)</th></tr>
+  {% for metric in ("agreement", "tokens", "seconds") %}
+  <tr>
+    <td>{{ metric }}</td>
+    <td class="mono">{{ summary.arms.A[metric].mean }}</td>
+    <td class="mono">{{ summary.arms.B[metric].mean }}</td>
+    <td class="mono">{{ summary.delta[metric].mean }} [{{ summary.delta[metric].ci95[0] }}, {{ summary.delta[metric].ci95[1] }}]</td>
+  </tr>
+  {% endfor %}
+</table>
+<p class="muted">Golden set: 29 postings, 114 vereditos humanos. Claim C-MERIT-001 no evidence ledger.</p>
+{% else %}
+<p class="muted">sem resultados de benchmark - rode o merit-graph-vs-loop no METRON</p>
+{% endif %}
+{% endblock %}
