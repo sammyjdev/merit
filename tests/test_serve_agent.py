@@ -121,7 +121,24 @@ def test_render_sync_plist_runs_ingest_hourly(tmp_path):
     assert plist["WorkingDirectory"] == str(tmp_path / "repo")
     assert plist["StartInterval"] == 3600
     # No credentials anywhere in the plist - keychain fallback handles auth.
-    assert "PASSWORD" not in str(plist).upper() or "MERIT_IMAP" not in str(plist)
+    assert "MERIT_IMAP_PASSWORD" not in str(plist)
+
+
+def test_render_sync_plist_chains_one_run_per_mailbox(tmp_path):
+    plist = agent.render_sync_plist(
+        tmp_path,
+        python="/usr/bin/python3",
+        workdir=tmp_path / "repo",
+        mailboxes=("InMail", "Linkedin Jobs"),
+    )
+
+    assert plist["ProgramArguments"][0] == "/bin/sh"
+    command = plist["ProgramArguments"][2]
+    assert command.count("ingest-mail") == 2
+    assert "--mailbox InMail" in command
+    assert "--mailbox 'Linkedin Jobs'" in command
+    assert "&&" in command
+    assert "MERIT_IMAP_PASSWORD" not in command
 
 
 def test_install_and_uninstall_sync_agent(tmp_path):

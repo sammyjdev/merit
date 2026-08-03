@@ -8,6 +8,7 @@ import typer
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.types import Command
 
+from merit import mail as mail_module
 from merit import queue, track
 from merit.fetch import fetch_posting
 from merit.graph.build import build_graph
@@ -112,6 +113,9 @@ def ingest_mail(
     out_dir: str = typer.Option(str(INBOX_DIR), "--out-dir"),
     queue_path: str = typer.Option(str(queue.QUEUE_PATH), "--queue-path"),
     full: bool = typer.Option(False, "--full"),
+    mailbox: list[str] = typer.Option(
+        [], "--mailbox", help="Gmail label; repeatable with --install-agent"
+    ),
     install_agent: bool = typer.Option(False, "--install-agent"),
     uninstall_agent: bool = typer.Option(False, "--uninstall-agent"),
     interval: int = typer.Option(3600, "--interval", help="Sync agent period in seconds"),
@@ -121,12 +125,14 @@ def ingest_mail(
         raise typer.Exit(1)
 
     if install_agent:
-        import sys
-
         from merit.serve import agent as launch_agent
 
         written = launch_agent.install_sync_agent(
-            Path.home(), python=sys.executable, workdir=Path.cwd(), interval=interval
+            Path.home(),
+            python=sys.executable,
+            workdir=Path.cwd(),
+            interval=interval,
+            mailboxes=tuple(mailbox),
         )
         typer.echo(str(written))
         typer.echo(f"launchctl load {written}")
@@ -141,13 +147,20 @@ def ingest_mail(
             typer.echo("No sync LaunchAgent installed")
         return
 
+    if len(mailbox) > 1:
+        typer.echo("one --mailbox per run (multiple only with --install-agent)")
+        raise typer.Exit(1)
+    if mailbox:
+        os.environ["MERIT_IMAP_MAILBOX"] = mailbox[0]
+
     try:
         conn = connect()
     except MailError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1) from None
 
-    cursor_path = Path(out_dir) / ".last-uid"
+    active_mailbox = os.environ.get("MERIT_IMAP_MAILBOX", mail_module.DEFAULT_MAILBOX)
+    cursor_path = Path(out_dir) / mail_module.cursor_name(active_mailbox)
     if full:
         cursor_path.unlink(missing_ok=True)
     conn.merit_cursor = True

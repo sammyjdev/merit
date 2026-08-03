@@ -542,3 +542,10 @@ def test_env_config_still_fails_loud_without_any_source(monkeypatch):
 
     with pytest.raises(mail.MailError):
         mail._env_config()
+
+
+def test_cursor_name_is_mailbox_scoped():
+    from merit.mail import cursor_name
+
+    assert cursor_name("InMail") == ".last-uid-inmail"
+    assert cursor_name("Linkedin Jobs") == ".last-uid-linkedin-jobs"

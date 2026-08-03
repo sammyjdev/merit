@@ -71,6 +71,13 @@ def _close_quietly(conn) -> None:
         conn.logout()
 
 
+def cursor_name(mailbox: str) -> str:
+    """UID cursors are per-mailbox (UIDs only mean something inside one
+    mailbox), so the cursor file carries the mailbox in its name."""
+    slug = re.sub(r"[^a-z0-9]+", "-", mailbox.lower()).strip("-")
+    return f".last-uid-{slug}"
+
+
 def _keychain(service: str) -> str | None:
     """macOS keychain lookup so launchd jobs (and plain CLI runs) work with
     no credentials in env or files. Value never gets logged or echoed."""
