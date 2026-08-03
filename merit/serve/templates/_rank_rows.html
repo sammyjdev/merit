@@ -1,0 +1,29 @@
+<div id="rank-rows">
+  {% for r in rows %}
+  <article class="rank-row" data-row>
+    <details hx-get="/rank/posting/{{ r.file }}" hx-trigger="toggle once" hx-target="find .rank-detail" hx-swap="outerHTML">
+      <summary>
+        <span class="rank-title">{{ r.title }}</span>
+        <span class="chip-strong mono">{{ r.strong }}F</span>
+        <span class="chip-partial mono">{{ r.partial }}P</span>
+        <span class="{% if r.gap %}chip-gap{% else %}chip-partial{% endif %} mono">{{ r.gap }}L</span>
+        <span class="mono rank-score">{{ "%+d"|format(r.score) }}</span>
+      </summary>
+      <div class="rank-detail"><p class="muted">carregando...</p></div>
+    </details>
+    <form hx-post="/rank/track">
+      <input type="hidden" name="file" value="{{ r.file }}">
+      <input type="hidden" name="title" value="{{ r.title }}">
+      <button type="submit">acompanhar</button>
+    </form>
+  </article>
+  {% else %}
+  <p class="muted">inbox vazio - rode merit fetch para puxar as InMails</p>
+  {% endfor %}
+  {% if more %}
+  <a href="/rank?all=1">mostrar todas ({{ total }})</a>
+  {% endif %}
+  {% if skipped %}
+  <p class="muted">pulados: {% for s in skipped %}{{ s }}{% if not loop.last %} · {% endif %}{% endfor %}</p>
+  {% endif %}
+</div>

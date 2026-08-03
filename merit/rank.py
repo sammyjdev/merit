@@ -46,13 +46,7 @@ def _compiled_terms(profile: Profile) -> list[tuple[str, re.Pattern[str]]]:
     ]
 
 
-def score_text(
-    profile: Profile,
-    text: str,
-    _terms: list[tuple[str, re.Pattern[str]]] | None = None,
-) -> tuple[int, int, int, int]:
-    """Return (strong, partial, gap, score) for raw posting text against profile."""
-    terms = _terms if _terms is not None else _compiled_terms(profile)
+def _hits(profile: Profile, text: str, terms: list[tuple[str, re.Pattern[str]]]) -> dict:
     # ponytail: verbatim term scan, dedup per skill. No stemming/splitting - the
     # alias table is the tuning knob.
     hits = {}
@@ -61,6 +55,27 @@ def score_text(
             entry = resolve(profile, term)
             if entry is not None:
                 hits[entry.id] = entry
+    return hits
+
+
+def hit_names(profile: Profile, text: str) -> dict[str, list[str]]:
+    """Matched skill names grouped by status - the 'why' behind a score."""
+    names: dict[str, list[str]] = {"strong": [], "partial": [], "gap": []}
+    for entry in _hits(profile, text, _compiled_terms(profile)).values():
+        names[entry.status].append(entry.name)
+    for group in names.values():
+        group.sort()
+    return names
+
+
+def score_text(
+    profile: Profile,
+    text: str,
+    _terms: list[tuple[str, re.Pattern[str]]] | None = None,
+) -> tuple[int, int, int, int]:
+    """Return (strong, partial, gap, score) for raw posting text against profile."""
+    terms = _terms if _terms is not None else _compiled_terms(profile)
+    hits = _hits(profile, text, terms)
     strong = sum(1 for e in hits.values() if e.status == "strong")
     partial = sum(1 for e in hits.values() if e.status == "partial")
     gap = sum(1 for e in hits.values() if e.status == "gap")

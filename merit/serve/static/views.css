@@ -17,6 +17,29 @@
 .fila-meta { grid-column: 1; color: var(--muted); }
 .fila-actions { display: flex; gap: 4px; }
 
+/* view: rank */
+.rank-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: start;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.rank-row + .rank-row { margin-top: 8px; }
+.rank-row.selected { outline: 2px solid var(--accent); }
+.rank-row summary { display: flex; gap: 12px; align-items: center; cursor: pointer; }
+.rank-title { flex: 1; }
+.rank-score { font-weight: 600; }
+.chip-strong { color: var(--accent); }
+.chip-partial { color: var(--muted); }
+.chip-gap { color: var(--danger); }
+.rank-detail { margin-top: 8px; }
+.rank-detail pre { white-space: pre-wrap; }
+
 /* view: pipeline */
 .pipeline-kanban {
   display: flex;

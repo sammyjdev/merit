@@ -225,3 +225,22 @@ def test_cli_rank_needs_no_llm_or_state_db(tmp_path, monkeypatch):
 
     assert result.exit_code == 0, result.output
     assert result.exception is None
+
+
+def test_hit_names_groups_matched_skill_names_by_status():
+    from merit.rank import hit_names
+
+    text = "We use FastAPI and REST APIs daily; PyTorch required."
+    names = hit_names(_profile(), text)
+
+    assert names["strong"] == ["FastAPI"]  # alias dedups into one skill
+    assert names["partial"] == []
+    assert names["gap"] == ["PyTorch"]
+
+
+def test_hit_names_empty_when_nothing_matches():
+    from merit.rank import hit_names
+
+    names = hit_names(_profile(), "Sales role, no tech stack.")
+
+    assert names == {"strong": [], "partial": [], "gap": []}

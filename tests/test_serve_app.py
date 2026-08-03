@@ -28,8 +28,8 @@ def test_three_views_render_with_topbar():
         response = client.get(path)
         assert response.status_code == 200, path
         assert "1 Fila" in response.text
-        assert "2 Pipeline" in response.text
-        assert "3 Dossie" in response.text
+        assert "3 Pipeline" in response.text
+        assert "4 Dossie" in response.text
 
 
 def test_csp_and_nosniff_headers_on_every_response():

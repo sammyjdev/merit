@@ -43,4 +43,4 @@ def test_evals_graceful_without_summary(tmp_path, monkeypatch):
 
 def test_evals_in_topbar(monkeypatch):
     client = TestClient(create_app())
-    assert "4 Evals" in client.get("/fila").text
+    assert "5 Evals" in client.get("/fila").text
