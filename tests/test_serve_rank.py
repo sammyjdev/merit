@@ -66,6 +66,13 @@ def test_rank_detail_shows_hit_names_and_body(client):
     assert "REST APIs experience" in response.text
 
 
+def test_rank_detail_strips_mail_frontmatter(client):
+    # Raw mail headers (from/date/message-id) are noise in the reading pane.
+    response = client.get("/rank/posting/acme.md")
+
+    assert "subject:" not in response.text
+
+
 def test_rank_detail_rejects_traversal_and_unknown(client):
     assert client.get("/rank/posting/nope.md").status_code == 404
     assert client.get("/rank/posting/..%2facme.md").status_code == 404

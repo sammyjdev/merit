@@ -31,6 +31,7 @@
 }
 .rank-row + .rank-row { margin-top: 8px; }
 .rank-row.selected { outline: 2px solid var(--accent); }
+.rank-row details { min-width: 0; }
 .rank-row summary { display: flex; gap: 12px; align-items: center; cursor: pointer; }
 .rank-title { flex: 1; }
 .rank-score { font-weight: 600; }
@@ -38,7 +39,7 @@
 .chip-partial { color: var(--muted); }
 .chip-gap { color: var(--danger); }
 .rank-detail { margin-top: 8px; }
-.rank-detail pre { white-space: pre-wrap; }
+.rank-detail pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* view: pipeline */
 .pipeline-kanban {

@@ -27,6 +27,7 @@
     if (e.key === "j") move(1);
     if (e.key === "k") move(-1);
     if (e.key === "Enter") {
+      if (e.target.matches("summary")) return; // native toggle already handles it
       var cur = selected();
       var link = cur && cur.querySelector("a[data-open]");
       if (link) { link.click(); return; }

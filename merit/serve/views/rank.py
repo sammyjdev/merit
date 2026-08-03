@@ -5,7 +5,7 @@ from urllib.parse import parse_qs
 
 from fastapi import APIRouter, HTTPException, Request, Response
 
-from merit import profile, rank, track
+from merit import goldenset, profile, rank, track
 from merit.serve import rendering
 
 router = APIRouter()
@@ -66,8 +66,11 @@ async def posting(request: Request, name: str):
     path = _posting_path(name)
     text = path.read_text(encoding="utf-8", errors="replace")
     prof = profile.load_profile(_profile_path())
+    # Hits score the full text (same input as the list); the reading pane
+    # drops the raw mail frontmatter - headers are noise on screen.
+    body = goldenset.sanitize(text)
     return rendering.templates.TemplateResponse(
-        request, "_rank_detail.html", {"hits": rank.hit_names(prof, text), "body": text}
+        request, "_rank_detail.html", {"hits": rank.hit_names(prof, text), "body": body}
     )
 
 
