@@ -1,8 +1,7 @@
 <div id="rank-rows">
   <p class="muted rank-counts">
-    {{ total }} no inbox · {{ visible_n }} visiveis ·
-    {{ counts.onsite }} on-site · {{ counts.stale }} antigas ·
-    {{ counts.weak }} fracas · {{ counts.tracked }} acompanhando
+    {{ total }} recentes · {{ visible_n }} visiveis ·
+    {{ counts.onsite }} on-site · {{ counts.weak }} fracas · {{ counts.tracked }} acompanhando
     {% if show_hidden %}<a href="/rank">ocultar filtradas</a>{% else %}<a href="/rank?hidden=1">mostrar ocultas</a>{% endif %}
   </p>
   {% for r in rows %}
@@ -23,10 +22,10 @@
       {% if r.reason == "acompanhando" %}
       <a href="/dossie/{{ r.app_id }}">dossie</a>
       {% else %}
-      <form hx-post="/rank/track">
+      <form hx-post="/rank/track" hx-target="#rank-rows" hx-swap="outerHTML">
         <input type="hidden" name="file" value="{{ r.file }}">
         <input type="hidden" name="title" value="{{ r.title }}">
-        <button type="submit">acompanhar</button>
+        <button type="submit" class="primary">acompanhar</button>
       </form>
       <form hx-post="/rank/discard" hx-target="#rank-rows" hx-swap="outerHTML">
         <input type="hidden" name="file" value="{{ r.file }}">

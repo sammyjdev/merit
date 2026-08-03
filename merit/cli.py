@@ -112,7 +112,35 @@ def ingest_mail(
     out_dir: str = typer.Option(str(INBOX_DIR), "--out-dir"),
     queue_path: str = typer.Option(str(queue.QUEUE_PATH), "--queue-path"),
     full: bool = typer.Option(False, "--full"),
+    install_agent: bool = typer.Option(False, "--install-agent"),
+    uninstall_agent: bool = typer.Option(False, "--uninstall-agent"),
+    interval: int = typer.Option(3600, "--interval", help="Sync agent period in seconds"),
 ):
+    if install_agent and uninstall_agent:
+        typer.echo("pass exactly one of --install-agent / --uninstall-agent")
+        raise typer.Exit(1)
+
+    if install_agent:
+        import sys
+
+        from merit.serve import agent as launch_agent
+
+        written = launch_agent.install_sync_agent(
+            Path.home(), python=sys.executable, workdir=Path.cwd(), interval=interval
+        )
+        typer.echo(str(written))
+        typer.echo(f"launchctl load {written}")
+        return
+
+    if uninstall_agent:
+        from merit.serve import agent as launch_agent
+
+        if launch_agent.uninstall_sync_agent(Path.home()):
+            typer.echo("Sync LaunchAgent removed")
+        else:
+            typer.echo("No sync LaunchAgent installed")
+        return
+
     try:
         conn = connect()
     except MailError as exc:

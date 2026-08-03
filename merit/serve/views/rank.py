@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 from urllib.parse import parse_qs
 
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, HTTPException, Request
 
 from merit import goldenset, profile, rank, track
 from merit.serve import rendering
@@ -53,8 +53,6 @@ def _reason(row: rank.Row, tracked_id: int | None) -> str | None:
         return "acompanhando"
     if row.workplace == "onsite":
         return "on-site"
-    if row.age_days is not None and row.age_days > STALE_DAYS:
-        return "antiga"
     if row.score <= 0:
         return "fraca"
     return None
@@ -62,12 +60,15 @@ def _reason(row: rank.Row, tracked_id: int | None) -> str | None:
 
 def _rows(show_hidden: bool, show_all: bool) -> dict:
     prof = profile.load_profile(_profile_path())
-    rows, skipped = rank.rank_dir(prof, _inbox_dir())
+    all_rows, skipped = rank.rank_dir(prof, _inbox_dir())
+    # Owner call 2026-08-03: stale postings are gone entirely - not listed,
+    # not counted, not behind the reveal toggle.
+    rows = [r for r in all_rows if r.age_days is None or r.age_days <= STALE_DAYS]
     tracked = track.sources(_db_path())
     inbox = _inbox_dir()
 
     annotated = []
-    counts = {"onsite": 0, "stale": 0, "weak": 0, "tracked": 0}
+    counts = {"onsite": 0, "weak": 0, "tracked": 0}
     for row in rows:
         app_id = tracked.get(str(inbox / row.file))
         reason = _reason(row, app_id)
@@ -75,8 +76,6 @@ def _rows(show_hidden: bool, show_all: bool) -> dict:
             counts["tracked"] += 1
         elif reason == "on-site":
             counts["onsite"] += 1
-        elif reason == "antiga":
-            counts["stale"] += 1
         elif reason == "fraca":
             counts["weak"] += 1
         annotated.append({**row._asdict(), "reason": reason, "app_id": app_id})
@@ -129,14 +128,17 @@ async def track_posting(request: Request):
     name = form["file"][0]
     title = form["title"][0]
     path = _posting_path(name)
-    app_id = track.add(
+    track.add(
         _db_path(),
         str(path),
         title=title,
         status="queued",
         dossier_root=_dossier_root(),
     )
-    return Response(status_code=200, headers={"HX-Redirect": f"/dossie/{app_id}"})
+    # Batch triage: stay in the list; the dossier is one click away via the badge.
+    return rendering.templates.TemplateResponse(
+        request, "_rank_rows.html", _rows(show_hidden=False, show_all=False)
+    )
 
 
 @router.post("/rank/discard")

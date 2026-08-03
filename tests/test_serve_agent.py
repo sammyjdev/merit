@@ -2,6 +2,7 @@ import pytest
 from typer.testing import CliRunner
 
 from merit.cli import app
+from merit.serve import agent
 from merit.serve.agent import (
     LABEL,
     install_agent,
@@ -107,3 +108,29 @@ def test_resolve_binary_raises_if_not_found(monkeypatch):
 def test_resolve_binary_returns_path_if_found(monkeypatch):
     monkeypatch.setattr("shutil.which", lambda cmd: "/usr/bin/merit")
     assert resolve_binary() == "/usr/bin/merit"
+
+
+def test_render_sync_plist_runs_ingest_hourly(tmp_path):
+    plist = agent.render_sync_plist(
+        tmp_path, python="/usr/bin/python3", workdir=tmp_path / "repo", interval=3600
+    )
+
+    assert plist["Label"] == agent.SYNC_LABEL
+    assert plist["ProgramArguments"][0] == "/usr/bin/python3"
+    assert plist["ProgramArguments"][-1] == "ingest-mail"
+    assert plist["WorkingDirectory"] == str(tmp_path / "repo")
+    assert plist["StartInterval"] == 3600
+    # No credentials anywhere in the plist - keychain fallback handles auth.
+    assert "PASSWORD" not in str(plist).upper() or "MERIT_IMAP" not in str(plist)
+
+
+def test_install_and_uninstall_sync_agent(tmp_path):
+    written = agent.install_sync_agent(
+        tmp_path, python="/usr/bin/python3", workdir=tmp_path / "repo"
+    )
+
+    assert written.exists()
+    assert agent.SYNC_LABEL in written.name
+    assert agent.uninstall_sync_agent(tmp_path) is True
+    assert not written.exists()
+    assert agent.uninstall_sync_agent(tmp_path) is False

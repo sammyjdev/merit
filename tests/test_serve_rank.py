@@ -80,7 +80,8 @@ def test_rank_detail_rejects_traversal_and_unknown(client):
     assert client.get("/rank/posting/acme.txt").status_code == 404
 
 
-def test_rank_track_creates_application_and_redirects(client, tmp_path):
+def test_rank_track_keeps_you_in_the_list(client, tmp_path):
+    # Batch triage: acompanhar re-renders the list (no dossier teleport).
     response = client.post(
         "/rank/track",
         data={"file": "acme.md", "title": "Senior FastAPI Engineer - Acme"},
@@ -88,7 +89,8 @@ def test_rank_track_creates_application_and_redirects(client, tmp_path):
     )
 
     assert response.status_code == 200
-    assert response.headers["HX-Redirect"] == "/dossie/1"
+    assert "HX-Redirect" not in response.headers
+    assert "1 acompanhando" in response.text
     listing = track.list_markdown(str(tmp_path / "merit.db"))
     assert "Senior FastAPI Engineer - Acme" in listing
 
@@ -175,19 +177,19 @@ def test_rank_hides_onsite_stale_and_weak_by_default(client_filters):
 
     assert "Senior FastAPI Engineer - Acme" in body
     assert "Presencial SP" not in body           # onsite hidden
-    assert "FastAPI Contractor" not in body      # 30+ days hidden
+    assert "FastAPI Contractor" not in body      # 30+ days: gone entirely
     assert "PyTorch Researcher" not in body      # score <= 0 hidden
     assert "1 on-site" in body
-    assert "1 antigas" in body
+    assert "antigas" not in body                 # stale is not even counted
     assert "1 fracas" in body
 
 
-def test_rank_hidden_toggle_reveals_all(client_filters):
+def test_rank_hidden_toggle_reveals_filtered_but_never_stale(client_filters):
     body = client_filters.get("/rank?hidden=1").text
 
     assert "Presencial SP" in body
-    assert "FastAPI Contractor" in body
     assert "PyTorch Researcher" in body
+    assert "FastAPI Contractor" not in body  # owner call 2026-08-03: stale stays out
 
 
 def test_rank_tracked_posting_leaves_default_list_with_counter(client_filters, tmp_path):
@@ -217,3 +219,21 @@ def test_rank_discard_moves_file_out_of_inbox(client_filters, tmp_path):
 
 def test_rank_discard_rejects_traversal(client_filters):
     assert client_filters.post("/rank/discard", data={"file": "../x.md"}).status_code == 404
+
+
+def test_topbar_shows_visible_work_badges(client):
+    body = client.get("/rank").text
+
+    # client fixture: 1 visible rank posting, empty fila, no applications
+    assert "2 Rank (1)" in body
+    assert "1 Fila (0)" in body
+    assert "3 Pipeline (0)" in body
+
+
+def test_keys_help_overlay_exists_with_legend(client):
+    body = client.get("/rank").text
+
+    assert 'id="keys-help"' in body
+    assert "hidden" in body
+    assert "atalhos" in body
+    assert "fortes" in body  # F/P/L legend

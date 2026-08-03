@@ -75,7 +75,9 @@ def test_discard_removes_from_queue_and_returns_partial(client, tmp_path):
     assert HOT_1.url not in [e.url for e in remaining]
 
 
-def test_track_creates_application_and_redirects(client, tmp_path):
+def test_track_keeps_you_in_the_fila(client, tmp_path):
+    # Batch triage: acompanhar re-renders the list (no dossier teleport);
+    # the tracked entry leaves the default list with a counter.
     response = client.post(
         "/fila/track",
         data={"url": HOT_1.url, "title": HOT_1.title, "company": HOT_1.company},
@@ -83,9 +85,13 @@ def test_track_creates_application_and_redirects(client, tmp_path):
     )
 
     assert response.status_code == 200
-    assert response.headers["HX-Redirect"] == "/dossie/1"
+    assert "HX-Redirect" not in response.headers
+    assert "1 acompanhando" in response.text
     listing = track.list_markdown(str(tmp_path / "merit.db"))
     assert "Senior FastAPI Engineer" in listing
+
+    revealed = client.get("/fila?hidden=1").text
+    assert "/dossie/1" in revealed
 
 
 def test_fila_rows_have_keyboard_contract(client):
@@ -156,15 +162,15 @@ def test_fila_hides_stale_and_onsite_with_counters(client_filters):
     assert "Senior FastAPI Engineer" in body
     assert "old alert" not in body
     assert "On-site Sao Paulo" not in body
-    assert "1 antigas" in body
+    assert "antigas" not in body  # stale is not even counted
     assert "1 on-site" in body
     assert "1 frias" in body
 
 
-def test_fila_hidden_toggle_reveals_filtered(client_filters):
+def test_fila_hidden_toggle_reveals_filtered_but_never_stale(client_filters):
     body = client_filters.get("/fila?hidden=1").text
 
-    assert "old alert" in body
+    assert "old alert" not in body  # owner call 2026-08-03: stale stays out
     assert "On-site Sao Paulo" in body
     assert "Staff PyTorch Research Engineer" in body
 

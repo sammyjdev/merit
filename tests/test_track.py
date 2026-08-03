@@ -257,3 +257,13 @@ def test_sources_maps_source_to_app_id(tmp_path):
 
 def test_sources_empty_db(tmp_path):
     assert track.sources(str(tmp_path / "t.db")) == {}
+
+
+def test_count_active_excludes_terminal_statuses(tmp_path):
+    db = str(tmp_path / "t.db")
+    track.add(db, "s1", title="A", status="queued")
+    track.add(db, "s2", title="B", status="interview")
+    rejected = track.add(db, "s3", title="C", status="applied")
+    track.set_status(db, rejected, "rejected")
+
+    assert track.count_active(db) == 2

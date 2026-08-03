@@ -10,7 +10,7 @@ from dataclasses import asdict
 from pathlib import Path
 from urllib.parse import parse_qs
 
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Request
 
 from merit import profile, queue, rank, track
 from merit.serve import rendering
@@ -40,35 +40,43 @@ def _profile_path() -> str:
     return os.environ.get("MERIT_PROFILE", "profile/profile.yaml")
 
 
-def _reason(entry: queue.Entry, score: int) -> str | None:
+def _reason(entry: queue.Entry, score: int, tracked_id: int | None) -> str | None:
+    if tracked_id is not None:
+        return "acompanhando"
     # Digests fold location into the company string ("Acme - SP (On-site)"),
     # so the workplace signal lives in title + company.
     if rank.classify_workplace(f"{entry.title} {entry.company or ''}") == "onsite":
         return "on-site"
-    if queue.is_stale(entry, days=STALE_DAYS):
-        return "antiga"
     if score <= 0:
         return "fria"
     return None
 
 
 def _rows(show_hidden: bool) -> dict:
-    entries = queue.load_entries(_queue_path())
+    # Owner call 2026-08-03: stale entries are gone entirely - not listed,
+    # not counted, not behind the reveal toggle.
+    entries = [
+        entry
+        for entry in queue.load_entries(_queue_path())
+        if not queue.is_stale(entry, days=STALE_DAYS)
+    ]
     profile_path = _profile_path()
     prof = profile.load_profile(profile_path) if Path(profile_path).is_file() else None
+    tracked = track.sources(_db_path())
 
     annotated = []
-    counts = {"onsite": 0, "stale": 0, "cold": 0}
+    counts = {"onsite": 0, "cold": 0, "tracked": 0}
     for entry in entries:
         score = rank.score_text(prof, entry.title)[3] if prof else 0
-        reason = _reason(entry, score)
+        app_id = tracked.get(entry.url)
+        reason = _reason(entry, score, app_id)
         if reason == "on-site":
             counts["onsite"] += 1
-        elif reason == "antiga":
-            counts["stale"] += 1
         elif reason == "fria":
             counts["cold"] += 1
-        annotated.append({**asdict(entry), "score": score, "reason": reason})
+        elif reason == "acompanhando":
+            counts["tracked"] += 1
+        annotated.append({**asdict(entry), "score": score, "reason": reason, "app_id": app_id})
 
     annotated.sort(key=lambda e: e["score"], reverse=True)
     visible = [e for e in annotated if e["reason"] is None]
@@ -108,7 +116,7 @@ async def track_entry(
     url = form["url"][0]
     title = form["title"][0]
     company = form["company"][0]
-    app_id = track.add(
+    track.add(
         _db_path(),
         url,
         title=title,
@@ -116,4 +124,5 @@ async def track_entry(
         status="queued",
         dossier_root=_dossier_root(),
     )
-    return Response(status_code=200, headers={"HX-Redirect": f"/dossie/{app_id}"})
+    # Batch triage: stay in the list; the dossier is one click away via the badge.
+    return rendering.templates.TemplateResponse(request, "_fila_rows.html", _rows(show_hidden=False))

@@ -9,6 +9,8 @@ import imaplib
 import json
 import os
 import re
+import subprocess
+import sys
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
@@ -69,15 +71,37 @@ def _close_quietly(conn) -> None:
         conn.logout()
 
 
+def _keychain(service: str) -> str | None:
+    """macOS keychain lookup so launchd jobs (and plain CLI runs) work with
+    no credentials in env or files. Value never gets logged or echoed."""
+    if sys.platform != "darwin":
+        return None
+    try:
+        result = subprocess.run(  # noqa: S603 - fixed binary, fixed args
+            ["/usr/bin/security", "find-generic-password", "-s", service, "-w"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    value = result.stdout.strip()
+    return value if result.returncode == 0 and value else None
+
+
 def _env_config() -> tuple[str, str, str, str]:
     host = os.environ.get("MERIT_IMAP_HOST", DEFAULT_HOST)
-    user = os.environ.get("MERIT_IMAP_USER")
-    password = os.environ.get("MERIT_IMAP_PASSWORD")
+    user = os.environ.get("MERIT_IMAP_USER") or _keychain("merit-imap-user")
+    password = os.environ.get("MERIT_IMAP_PASSWORD") or _keychain("merit-imap-pass")
     mailbox = os.environ.get("MERIT_IMAP_MAILBOX", DEFAULT_MAILBOX)
     if not user:
-        raise MailError("missing required env var MERIT_IMAP_USER")
+        raise MailError(
+            "missing credentials: set MERIT_IMAP_USER or store keychain item merit-imap-user"
+        )
     if not password:
-        raise MailError("missing required env var MERIT_IMAP_PASSWORD")
+        raise MailError(
+            "missing credentials: set MERIT_IMAP_PASSWORD or store keychain item merit-imap-pass"
+        )
     return host, user, password, mailbox
 
 

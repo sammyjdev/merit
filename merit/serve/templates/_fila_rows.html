@@ -1,7 +1,7 @@
 <div id="fila-rows">
   <p class="muted rank-counts">
-    {{ total }} na fila · {{ visible_n }} visiveis ·
-    {{ counts.onsite }} on-site · {{ counts.stale }} antigas · {{ counts.cold }} frias
+    {{ total }} recentes · {{ visible_n }} visiveis ·
+    {{ counts.onsite }} on-site · {{ counts.cold }} frias · {{ counts.tracked }} acompanhando
     {% if show_hidden %}<a href="/fila">ocultar filtradas</a>{% else %}<a href="/fila?hidden=1">mostrar ocultas</a>{% endif %}
   </p>
   {% for e in rows %}
@@ -13,6 +13,9 @@
     </span>
     <span class="fila-meta">{{ e.company or "empresa desconhecida" }}{% if e.alert_date %} · {{ e.alert_date }}{% endif %}</span>
     <span class="fila-actions">
+      {% if e.reason == "acompanhando" %}
+      <a href="/dossie/{{ e.app_id }}">dossie</a>
+      {% else %}
       <form hx-post="/fila/discard" hx-target="#fila-rows" hx-swap="outerHTML">
         <input type="hidden" name="url" value="{{ e.url }}">
         <button type="submit">descartar</button>
@@ -21,8 +24,9 @@
         <input type="hidden" name="url" value="{{ e.url }}">
         <input type="hidden" name="title" value="{{ e.title }}">
         <input type="hidden" name="company" value="{{ e.company or '' }}">
-        <button type="submit">acompanhar</button>
+        <button type="submit" class="primary">acompanhar</button>
       </form>
+      {% endif %}
     </span>
   </article>
   {% else %}

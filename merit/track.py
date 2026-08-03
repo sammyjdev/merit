@@ -277,6 +277,15 @@ def show_markdown(db_path: str, app_id: int) -> str:
     return "\n".join(lines)
 
 
+def count_active(db_path: str) -> int:
+    """Applications still in play (everything but rejected/withdrawn)."""
+    with contextlib.closing(_conn(db_path)) as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) AS n FROM applications WHERE status NOT IN ('rejected', 'withdrawn')"
+        ).fetchone()
+        return row["n"]
+
+
 def sources(db_path: str) -> dict[str, int]:
     """Map application source -> id, for marking already-tracked postings."""
     with contextlib.closing(_conn(db_path)) as conn:

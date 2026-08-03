@@ -17,6 +17,50 @@
 .fila-meta { grid-column: 1; color: var(--muted); }
 .fila-actions { display: flex; gap: 4px; }
 
+/* quiet action buttons (list rows) */
+.rank-actions button, .fila-actions button {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--muted);
+  padding: 3px 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.rank-actions button:hover, .fila-actions button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.rank-actions .primary, .fila-actions .primary {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* keys help overlay */
+#keys-help {
+  position: fixed;
+  inset: 0;
+  background: rgba(22, 52, 47, .35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+#keys-help[hidden] { display: none; }
+.keys-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 24px;
+  max-width: 420px;
+}
+.keys-panel h2 { font-size: 14px; margin: 0 0 8px; }
+.keys-panel h2 + ul { margin-top: 0; }
+.keys-panel ul { list-style: none; padding: 0; margin: 0 0 16px; }
+.keys-panel li { padding: 2px 0; }
+.keys-panel .mono { display: inline-block; min-width: 48px; }
+
 /* view: rank */
 .rank-row {
   display: grid;
