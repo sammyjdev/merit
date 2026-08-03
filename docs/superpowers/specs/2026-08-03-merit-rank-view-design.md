@@ -86,3 +86,19 @@ never silently dropped:
 Filters/search, profile editing, per-row `merit match` trigger (interrupt
 flow does not fit a button today), score distribution charts (Evals owns
 aggregates), markdown rendering of bodies.
+
+## Update 2026-08-03 (owner-approved): unified Vagas view (IA redesign)
+
+Owner feedback: the fila/rank split (by ingestion source) did not answer
+the real questions - "where did this vaga come from, how strong am I,
+where is it going". Both views merged into a single /vagas triage surface;
+/fila, /rank and / redirect there. Each row answers all three: source
+badge (inmail = recruiter mail with body, expands inline; alerta = job
+alert, links out), a source-calibrated level (forte/medio/fraco with a
+5-segment bar - inmail scores the body, alerta only the title, so bands
+and caps differ: BANDS/CAPS in views/vagas.py) and the inline pipeline
+state with a dossier link when tracked. Source filter pills (todas /
+inmail / alerta). Navigation shrinks to 4 views: Vagas, Pipeline, Dossie,
+Evals. Palette moved to cool dark neutrals with a single interactive blue;
+green/amber reserved for level semantics. F/P/L chips now live only inside
+the expanded detail.

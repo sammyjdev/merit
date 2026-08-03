@@ -4,7 +4,7 @@
    (cards must earn themselves - impeccable), numbers in mono. */
 
 /* quiet action buttons (list rows) */
-.rank-actions button, .fila-actions button {
+.vaga-actions button {
   background: transparent;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -14,15 +14,15 @@
   font-family: var(--sans);
   cursor: pointer;
 }
-.rank-actions button:hover, .fila-actions button:hover {
+.vaga-actions button:hover {
   border-color: var(--accent);
   color: var(--accent);
 }
-.rank-actions .primary, .fila-actions .primary {
+.vaga-actions .primary {
   color: var(--accent);
   border-color: var(--accent);
 }
-.rank-actions .primary:hover, .fila-actions .primary:hover {
+.vaga-actions .primary:hover {
   background: var(--accent-weak);
 }
 
@@ -56,18 +56,56 @@
 .keys-panel li { padding: 2px 0; }
 .keys-panel .mono { display: inline-block; min-width: 52px; }
 
-/* shared list grammar (fila + rank): hairline rows, no cards */
-.fila-row, .rank-row {
+/* view: vagas (unified triage list): hairline rows, no cards */
+.vaga-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 6px 16px;
+  align-items: start;
   border-bottom: 1px solid var(--line);
-  padding: 10px 8px;
+  padding: 14px 10px;
 }
-.fila-row:first-of-type, .rank-row:first-of-type { border-top: 1px solid var(--line); }
-.fila-row:hover, .rank-row:hover { background: var(--surface); }
-.fila-row.selected, .rank-row.selected {
+/* facts/actions optically align with the 15px title line when closed */
+.vaga-facts, .vaga-actions { margin-top: 3px; }
+.vaga-row:first-of-type { border-top: 1px solid var(--line); }
+.vaga-row:hover { background: var(--surface); }
+.vaga-row.selected {
   background: var(--accent-weak);
   box-shadow: inset 2px 0 0 var(--accent);
   outline: none;
 }
+.vaga-main { min-width: 0; }
+.vaga-title { font-size: 15px; font-weight: 600; color: var(--ink); }
+a.vaga-title:hover { color: var(--accent); text-decoration: none; }
+.vaga-meta { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+.vaga-state { color: var(--ink); }
+.vaga-facts { display: flex; gap: 14px; align-items: center; white-space: nowrap; }
+.vaga-actions { display: flex; gap: 4px; align-items: center; }
+.badge {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 8px;
+  color: var(--muted);
+}
+.lv { font-size: 12px; font-weight: 600; }
+.lv .mono { font-size: 11px; letter-spacing: -1px; }
+.lv-forte { color: var(--strong); }
+.lv-medio { color: var(--mid); }
+.lv-fraco { color: var(--muted); }
+.src-filter { display: flex; gap: 8px; margin: 0 0 16px; }
+.pill {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.pill:hover { text-decoration: none; color: var(--ink); border-color: var(--muted); }
+.pill.active { color: var(--accent); border-color: var(--accent); background: var(--accent-weak); }
 .rank-counts { font-size: 13px; margin: 0 0 12px; }
 .rank-counts a { margin-left: 8px; }
 .rank-reason {
@@ -77,60 +115,33 @@
   border-radius: 999px;
   padding: 1px 8px;
 }
-
-/* view: fila */
-.fila-row {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 4px 12px;
-  align-items: center;
-}
-.fila-row > a[data-open] {
-  color: var(--ink);
-  font-weight: 600;
-}
-.fila-row > a[data-open]:hover { color: var(--accent); text-decoration: none; }
-.fila-meta { grid-column: 1; color: var(--muted); font-size: 12px; }
-.fila-actions { display: flex; gap: 4px; }
-
-/* view: rank */
-.rank-row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 8px;
-  align-items: start;
-}
-.rank-row details { min-width: 0; }
-.rank-row summary {
+.vaga-row details { min-width: 0; }
+.vaga-row summary {
   display: flex;
-  gap: 12px;
-  align-items: baseline;
+  gap: 10px;
+  align-items: center;
   cursor: pointer;
   list-style: none;
 }
-.rank-row summary::-webkit-details-marker { display: none; }
-.rank-row summary::before {
+.vaga-row summary::-webkit-details-marker { display: none; }
+.vaga-row summary::before {
   content: "\25B8";
   color: var(--muted);
   font-size: 11px;
-  align-self: center;
 }
-.rank-row details[open] summary::before { content: "\25BE"; color: var(--accent); }
-.rank-title { flex: 1; font-weight: 600; }
-.rank-score { font-weight: 700; color: var(--accent); }
-.chip-strong { color: var(--accent); }
+.vaga-row details[open] summary::before { content: "\25BE"; color: var(--accent); }
+.chip-strong { color: var(--strong); }
 .chip-partial { color: var(--muted); }
 .chip-gap { color: var(--danger); }
-.rank-actions { display: flex; gap: 4px; align-items: center; }
-.rank-detail {
-  margin: 10px 0 4px 18px;
-  padding: 12px 16px;
+.vaga-detail {
+  margin: 12px 0 4px 20px;
+  padding: 14px 16px;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
 }
-.rank-detail p { margin: 0 0 6px; font-size: 13px; }
-.rank-detail pre {
+.vaga-detail p { margin: 0 0 6px; font-size: 13px; }
+.vaga-detail pre {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-family: var(--mono);

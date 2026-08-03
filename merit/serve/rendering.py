@@ -24,22 +24,21 @@ def nav_counts() -> dict | None:
     the db on track writes, the queue file on append/discard."""
     # Lazy imports: views import this module, so top-level would be circular.
     from merit import track
-    from merit.serve.views import fila, rank
+    from merit.serve.views import vagas
 
     try:
-        inbox = rank._inbox_dir()
-        queue_path = fila._queue_path()
-        db = Path(rank._db_path())
+        inbox = vagas._inbox_dir()
+        queue_path = vagas._queue_path()
+        db = Path(vagas._db_path())
         key = (
             str(inbox), _mtime(inbox),
             str(queue_path), _mtime(queue_path),
             str(db), _mtime(db),
-            rank._profile_path(),
+            vagas._profile_path(),
         )
         if _nav_cache.get("key") != key:
             _nav_cache["value"] = {
-                "fila": fila._rows(show_hidden=False)["visible_n"],
-                "rank": rank._rows(show_hidden=False, show_all=False)["visible_n"],
+                "vagas": vagas._rows(show_hidden=False, show_all=False, src=None)["visible_n"],
                 "pipeline": track.count_active(str(db)),
             }
             _nav_cache["key"] = key

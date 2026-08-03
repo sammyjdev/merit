@@ -1,7 +1,7 @@
 // Keyboard navigation - the whole JS surface of MERIT serve (spec: ~50 lines).
 (function () {
   "use strict";
-  var VIEWS = { "1": "/fila", "2": "/rank", "3": "/pipeline", "4": "/dossie", "5": "/evals" };
+  var VIEWS = { "1": "/vagas", "2": "/pipeline", "3": "/dossie", "4": "/evals" };
 
   function rows() { return Array.prototype.slice.call(document.querySelectorAll("[data-row]")); }
 

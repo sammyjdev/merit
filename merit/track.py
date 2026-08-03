@@ -295,6 +295,16 @@ def sources(db_path: str) -> dict[str, int]:
         }
 
 
+def sources_status(db_path: str) -> dict[str, tuple[int, str]]:
+    """Map application source -> (id, status), for showing the pipeline state
+    of a tracked posting right on its listing row."""
+    with contextlib.closing(_conn(db_path)) as conn:
+        return {
+            row["source"]: (row["id"], row["status"])
+            for row in conn.execute("SELECT source, id, status FROM applications ORDER BY id")
+        }
+
+
 def list_markdown(db_path: str, status: str | None = None) -> str:
     if status is not None:
         _validate(status)

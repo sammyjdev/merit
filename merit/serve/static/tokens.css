@@ -33,17 +33,21 @@
 
 :root {
   color-scheme: dark;
-  /* every neutral tinted toward the brand green - no pure black/gray */
-  --bg: #0D1512;
-  --surface: #131E19;
-  --raised: #1A2A22;
-  --ink: #E6F0EA;
-  --muted: #85A197;
-  --line: #233329;
-  --accent: #4ADE80;
-  --accent-weak: rgba(74, 222, 128, .10);
-  --danger: #F87171;
-  --radius: 4px;
+  /* cool dark neutrals tinted blue (never pure black/gray - impeccable);
+     one interactive accent (blue), color otherwise only where it means
+     something: strong/mid level, danger. */
+  --bg: #0F1114;
+  --surface: #15181D;
+  --raised: #1B1F26;
+  --ink: #E8EAEE;
+  --muted: #8B94A3;
+  --line: #232830;
+  --accent: #6E9BFF;
+  --accent-weak: rgba(110, 155, 255, .10);
+  --strong: #46C97E;
+  --mid: #D9A94E;
+  --danger: #E5726B;
+  --radius: 5px;
   --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --sans: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
 }
@@ -65,6 +69,14 @@ h1 {
 }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
+.wordmark {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: .18em;
+  color: var(--ink);
+  margin-right: 16px;
+}
 .topbar {
   display: flex; gap: 4px; align-items: center;
   padding: 8px 16px;
