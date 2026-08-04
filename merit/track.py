@@ -5,7 +5,19 @@ import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 
-STATUSES = ("found", "queued", "applied", "screening", "interview", "offer", "rejected", "withdrawn")
+STATUSES = (
+    "found",
+    "queued",
+    # Inbound work: the owner's move on a recruiter InMail is answering it,
+    # which is not an application. Without this the card has nowhere to go.
+    "replied",
+    "applied",
+    "screening",
+    "interview",
+    "offer",
+    "rejected",
+    "withdrawn",
+)
 
 LOG_FILES = ("thread", "notes")
 DIR_MODE = 0o700

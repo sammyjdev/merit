@@ -100,3 +100,50 @@ def test_pipeline_cards_show_followup_radar(tmp_path, monkeypatch):
     assert "sem contato ha" in body
     assert "card-cold" in body                       # >7d highlighted
     assert body.index("Vaga Fria") < body.index("Vaga Quente")  # colder first
+
+
+def test_replied_is_a_column_between_queued_and_applied(client, db_path):
+    """The owner's real move on an inbound InMail is answering the recruiter.
+    Without a column for it a card has nowhere to go after `queued`."""
+    app_id = track.add(db_path, "http://example.com/1", title="Inbound Role", status="queued")
+    track.set_status(db_path, app_id, "replied")
+
+    response = client.get("/pipeline")
+    assert response.status_code == 200
+    assert "respondida (1)" in response.text
+    assert response.text.index("na fila") < response.text.index("respondida")
+    assert response.text.index("respondida") < response.text.index("aplicada")
+
+
+def test_card_title_survives_a_pipe_character(client, db_path):
+    """The board rebuilds itself by parsing the markdown table that
+    track.list_markdown renders, so a title containing the table's own
+    delimiter round-trips through an escape. Guard that round-trip."""
+    track.add(db_path, "http://example.com/1", title="Data | Platform Engineer", status="queued")
+
+    response = client.get("/pipeline")
+    assert response.status_code == 200
+    assert "Data | Platform Engineer" in response.text
+
+
+def test_cards_and_columns_carry_the_drag_and_drop_contract(client, db_path):
+    track.add(db_path, "http://example.com/1", title="Draggable", status="queued")
+
+    response = client.get("/pipeline")
+    assert response.status_code == 200
+    assert 'draggable="true"' in response.text
+    assert 'data-drop-status="replied"' in response.text
+
+
+def test_every_drop_target_is_a_real_status(client, db_path):
+    """The board advertises drop targets by column key, but `encerradas`
+    collapses rejected+withdrawn under the key `closed`, which set_status
+    would refuse. A target the drop handler cannot honour must not exist."""
+    import re
+
+    track.add(db_path, "http://example.com/1", title="Any", status="queued")
+    response = client.get("/pipeline")
+
+    targets = set(re.findall(r'data-drop-status="([^"]+)"', response.text))
+    assert targets
+    assert targets <= set(track.STATUSES)
