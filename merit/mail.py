@@ -100,6 +100,7 @@ def _keychain(service: str) -> str | None:
             capture_output=True,
             text=True,
             timeout=5,
+            check=False,
         )
     except (OSError, subprocess.TimeoutExpired):
         return None

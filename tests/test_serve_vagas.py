@@ -1,5 +1,5 @@
 # tests/test_serve_vagas.py - unified Vagas view (IA redesign 2026-08-03)
-from datetime import date, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -12,7 +12,7 @@ from merit.serve.views import vagas
 FIXTURES = Path(__file__).parent / "fixtures"
 PROFILE_FIXTURE = FIXTURES / "profile_small.yaml"
 
-FRESH_DATE = (date.today() - timedelta(days=3)).isoformat()
+FRESH_DATE = (datetime.now(UTC).date() - timedelta(days=3)).isoformat()
 
 INMAIL_STRONG = """---
 subject: Senior FastAPI Engineer - Acme

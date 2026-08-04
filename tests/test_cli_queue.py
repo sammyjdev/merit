@@ -168,7 +168,7 @@ def test_ingest_mail_recruiter_only_writes_no_queue_file(tmp_path, monkeypatch):
 
 
 def test_queue_prune_days_removes_stale(tmp_path):
-    from datetime import date, timedelta
+    from datetime import UTC, datetime, timedelta
 
     path = tmp_path / "queue.json"
     queue.append_entries(
@@ -176,7 +176,7 @@ def test_queue_prune_days_removes_stale(tmp_path):
             queue.Entry(title="old", company=None, url="https://x.example/jobs/view/1/",
                         alert_date="2026-01-01"),
             queue.Entry(title="new", company=None, url="https://x.example/jobs/view/2/",
-                        alert_date=(date.today() - timedelta(days=2)).isoformat()),
+                        alert_date=(datetime.now(UTC).date() - timedelta(days=2)).isoformat()),
         ],
         path,
     )

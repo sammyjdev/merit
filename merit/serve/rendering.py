@@ -43,7 +43,7 @@ def nav_counts() -> dict | None:
             }
             _nav_cache["key"] = key
         return _nav_cache["value"]
-    except Exception:
+    except Exception:  # noqa: BLE001 - nav badges are decoration; never break a page for them
         return None
 
 

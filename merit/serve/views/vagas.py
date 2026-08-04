@@ -10,7 +10,7 @@ by origin.
 """
 import math
 import os
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 from urllib.parse import parse_qs
 
@@ -81,7 +81,7 @@ def _alert_age(alert_date: str | None) -> int | None:
     if not alert_date:
         return None
     try:
-        return max(0, (date.today() - date.fromisoformat(alert_date)).days)
+        return max(0, (datetime.now(UTC).date() - date.fromisoformat(alert_date)).days)
     except ValueError:
         return None
 

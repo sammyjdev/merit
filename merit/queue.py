@@ -5,7 +5,7 @@ import json
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
-from datetime import date, timedelta
+from datetime import UTC, datetime, timedelta
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -89,7 +89,7 @@ def is_stale(entry: Entry, days: int = 30) -> bool:
     (no evidence beats a guess)."""
     if not entry.alert_date:
         return False
-    cutoff = (date.today() - timedelta(days=days)).isoformat()
+    cutoff = (datetime.now(UTC).date() - timedelta(days=days)).isoformat()
     return entry.alert_date < cutoff
 
 

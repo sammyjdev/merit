@@ -113,7 +113,7 @@ def ingest_mail(
     out_dir: str = typer.Option(str(INBOX_DIR), "--out-dir"),
     queue_path: str = typer.Option(str(queue.QUEUE_PATH), "--queue-path"),
     full: bool = typer.Option(False, "--full"),
-    mailbox: list[str] = typer.Option(
+    mailbox: list[str] = typer.Option(  # noqa: B008 - typer reads defaults from the call
         [], "--mailbox", help="Gmail label; repeatable with --install-agent"
     ),
     install_agent: bool = typer.Option(False, "--install-agent"),

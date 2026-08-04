@@ -205,12 +205,12 @@ def test_queue_write_is_atomic_and_leaves_no_tmp_file(tmp_path):
 
 
 def test_is_stale_by_alert_date():
-    from datetime import date, timedelta
+    from datetime import UTC, datetime, timedelta
 
     old = queue.Entry(title="X", company=None, url="u1", alert_date="2026-01-01")
     fresh = queue.Entry(
         title="Y", company=None, url="u2",
-        alert_date=(date.today() - timedelta(days=3)).isoformat(),
+        alert_date=(datetime.now(UTC).date() - timedelta(days=3)).isoformat(),
     )
     undated = queue.Entry(title="Z", company=None, url="u3", alert_date=None)
 
@@ -220,10 +220,10 @@ def test_is_stale_by_alert_date():
 
 
 def test_prune_drops_stale_entries_and_reports(tmp_path):
-    from datetime import date, timedelta
+    from datetime import UTC, datetime, timedelta
 
     path = tmp_path / "queue.json"
-    fresh_date = (date.today() - timedelta(days=3)).isoformat()
+    fresh_date = (datetime.now(UTC).date() - timedelta(days=3)).isoformat()
     queue.append_entries(
         [
             queue.Entry(title="old", company=None, url="u1", alert_date="2026-01-01"),
