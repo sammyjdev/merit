@@ -165,3 +165,24 @@ def test_ingest_mail_recruiter_only_writes_no_queue_file(tmp_path, monkeypatch):
 
     assert result.exit_code == 0, result.output
     assert not queue_path.exists()
+
+
+def test_queue_prune_days_removes_stale(tmp_path):
+    from datetime import UTC, datetime, timedelta
+
+    path = tmp_path / "queue.json"
+    queue.append_entries(
+        [
+            queue.Entry(title="old", company=None, url="https://x.example/jobs/view/1/",
+                        alert_date="2026-01-01"),
+            queue.Entry(title="new", company=None, url="https://x.example/jobs/view/2/",
+                        alert_date=(datetime.now(UTC).date() - timedelta(days=2)).isoformat()),
+        ],
+        path,
+    )
+
+    result = runner.invoke(cli.app, ["queue", "--queue-path", str(path), "--prune-days", "30"])
+
+    assert result.exit_code == 0
+    assert "1" in result.output
+    assert {e.title for e in queue.load_entries(path)} == {"new"}

@@ -543,7 +543,8 @@ def test_fresh_db_has_dossier_dir_as_last_column(tmp_path):
     with track._conn(db_path) as conn:
         names = [r["name"] for r in conn.execute("PRAGMA table_info(applications)")]
 
-    assert names[-1] == "dossier_dir"
+    # Schema evolves append-only: thread_id (2026-08-04) after dossier_dir.
+    assert names[-2:] == ["dossier_dir", "thread_id"]
 
 
 def test_set_status_preserves_dossier_dir(tmp_path, monkeypatch):

@@ -76,3 +76,27 @@ def test_empty_state(client, db_path):
     response = client.get("/pipeline")
     assert response.status_code == 200
     assert "pipeline vazio - promova vagas na Fila" in response.text
+
+
+def test_pipeline_cards_show_followup_radar(tmp_path, monkeypatch):
+    import sqlite3
+
+    from fastapi.testclient import TestClient
+
+    from merit import track
+    from merit.serve.app import create_app
+
+    db = tmp_path / "merit.db"
+    monkeypatch.setenv("MERIT_DB", str(db))
+    track.add(str(db), "s1", title="Vaga Fria", status="applied")
+    track.add(str(db), "s2", title="Vaga Quente", status="applied")
+    with sqlite3.connect(db) as conn:
+        conn.execute(
+            "UPDATE applications SET updated_at = '2026-07-01T00:00:00+00:00' WHERE id = 1"
+        )
+
+    body = TestClient(create_app()).get("/pipeline").text
+
+    assert "sem contato ha" in body
+    assert "card-cold" in body                       # >7d highlighted
+    assert body.index("Vaga Fria") < body.index("Vaga Quente")  # colder first

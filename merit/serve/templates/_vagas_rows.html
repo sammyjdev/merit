@@ -1,0 +1,57 @@
+<div id="vagas-rows">
+  <p class="muted rank-counts">
+    {{ visible_n }} para triar ·
+    {{ counts.onsite }} on-site · {{ counts.weak }} sem aderencia · {{ counts.tracked }} acompanhando{% if counts.grouped %} · {{ counts.grouped }} agrupadas por conversa{% endif %}
+    {% if show_hidden %}<a href="/vagas{% if src %}?src={{ src }}{% endif %}">ocultar filtradas</a>{% else %}<a href="/vagas?hidden=1{% if src %}&src={{ src }}{% endif %}">mostrar ocultas</a>{% endif %}
+  </p>
+  {% for v in rows %}
+  <article class="vaga-row" data-row>
+    <div class="vaga-main">
+      {% if v.source == "inmail" %}
+      <details hx-get="/vagas/posting/{{ v.file }}" hx-trigger="toggle once" hx-target="find .vaga-detail" hx-swap="outerHTML">
+        <summary>
+          <span class="vaga-title">{{ v.title }}</span>
+        </summary>
+        <div class="vaga-detail"><p class="muted">carregando...</p></div>
+      </details>
+      {% else %}
+      <a class="vaga-title" href="{{ v.url }}" target="_blank" rel="noopener" data-open>{{ v.title }} ↗</a>
+      {% endif %}
+      <p class="vaga-meta">
+        {% if v.company %}{{ v.company }}{% endif %}
+        {% if v.state %}<span class="vaga-state">→ acompanhando · {{ v.state }} · <a href="/dossie/{{ v.app_id }}">dossie</a></span>{% endif %}
+        {% if v.reason and v.reason != "acompanhando" %}<span class="rank-reason">{{ v.reason }}</span>{% endif %}
+      </p>
+    </div>
+    <span class="vaga-facts">
+      <span class="badge badge-{{ v.source }}">{{ v.source }}</span>
+      <span class="lv lv-{{ v.level }}">{{ v.level }} <span class="mono">{{ v.bar }}</span></span>
+      {% if v.age_days is not none %}<span class="muted mono">{{ v.age_days }}d</span>{% endif %}
+    </span>
+    <span class="vaga-actions">
+      {% if not v.state %}
+      <form hx-post="/vagas/track" hx-target="#vagas-rows" hx-swap="outerHTML">
+        {% if v.file %}<input type="hidden" name="file" value="{{ v.file }}">{% endif %}
+        {% if v.url %}<input type="hidden" name="url" value="{{ v.url }}">{% endif %}
+        <input type="hidden" name="title" value="{{ v.title }}">
+        <input type="hidden" name="company" value="{{ v.company or '' }}">
+        <button type="submit" class="primary">acompanhar</button>
+      </form>
+      <form hx-post="/vagas/discard" hx-target="#vagas-rows" hx-swap="outerHTML">
+        {% if v.file %}<input type="hidden" name="file" value="{{ v.file }}">{% endif %}
+        {% if v.url %}<input type="hidden" name="url" value="{{ v.url }}">{% endif %}
+        <button type="submit">descartar</button>
+      </form>
+      {% endif %}
+    </span>
+  </article>
+  {% else %}
+  <p class="muted">nada para triar - rode merit fetch para puxar vagas{% if not show_hidden %} ou <a href="/vagas?hidden=1">veja as ocultas</a>{% endif %}</p>
+  {% endfor %}
+  {% if more %}
+  <a href="/vagas?all=1{% if show_hidden %}&hidden=1{% endif %}{% if src %}&src={{ src }}{% endif %}">mostrar todas ({{ visible_n if not show_hidden else total }})</a>
+  {% endif %}
+  {% if skipped %}
+  <p class="muted">pulados: {% for s in skipped %}{{ s }}{% if not loop.last %} · {% endif %}{% endfor %}</p>
+  {% endif %}
+</div>

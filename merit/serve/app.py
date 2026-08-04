@@ -9,7 +9,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 
-from merit.serve.views import dossie, evals, fila, pipeline
+from merit.serve.views import dossie, evals, pipeline, vagas
 from merit.telemetry import setup_tracing
 
 HOST = "127.0.0.1"
@@ -30,13 +30,16 @@ def create_app() -> FastAPI:
         response.headers["X-Content-Type-Options"] = "nosniff"
         return response
 
+    from fastapi.responses import RedirectResponse
+
     @app.get("/")
+    @app.get("/fila")
+    @app.get("/rank")
     async def root(request: Request):
-        from fastapi.responses import RedirectResponse
+        # /fila and /rank were merged into /vagas (IA redesign 2026-08-03).
+        return RedirectResponse("/vagas", status_code=307)
 
-        return RedirectResponse("/fila", status_code=307)
-
-    app.include_router(fila.router)
+    app.include_router(vagas.router)
     app.include_router(pipeline.router)
     app.include_router(dossie.router)
     app.include_router(evals.router)
