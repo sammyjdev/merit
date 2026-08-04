@@ -95,6 +95,26 @@ experiment (95.4%) used a deterministic scorer, so narrative quality is
 currently unmeasured. This is a bridge to `~/dev/tools/gnomon-eval`, not local
 work, and it is worth doing only once the service shape is settled.
 
+## Merging (decided 2026-08-04)
+
+Do not use GitHub's rebase merge. It recreates the commit under a new SHA and
+does not re-sign it: `2c28040` landed with `verified: false, reason: unsigned`,
+while the merge commits it sat next to report `verified: true`. This repo
+already tracks re-signing unsigned commits as owner work, so a rebase merge
+feeds that debt on every PR.
+
+Land a reviewed PR locally instead - linear history, signatures preserved:
+
+    git fetch origin
+    git checkout <branch> && git rebase origin/master
+    git push --force-with-lease origin <branch>   # let CI run on what lands
+    git checkout master && git merge --ff-only <branch>
+    git push origin master
+
+GitHub marks the PR merged on its own, because `--ff-only` keeps exactly the
+SHAs the PR already carries. `master` has no branch protection today, so the
+direct push is allowed; if that changes, this flow needs a revisit.
+
 ## Gate and known traps (from `.claude/loop.yaml`)
 
 - Gate: `.venv/bin/python -m pytest -q -p no:cacheprovider && .venv/bin/ruff check merit tests`
