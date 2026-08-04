@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>vagas</h1>
+<nav class="src-filter" aria-label="origem">
+  <a href="/vagas" class="pill {% if not src %}active{% endif %}">todas {{ counts.inmail + counts.alerta }}</a>
+  <a href="/vagas?src=inmail" class="pill {% if src == 'inmail' %}active{% endif %}">inmail {{ counts.inmail }}</a>
+  <a href="/vagas?src=alerta" class="pill {% if src == 'alerta' %}active{% endif %}">alerta {{ counts.alerta }}</a>
+</nav>
+{% include "_vagas_rows.html" %}
+{% endblock %}

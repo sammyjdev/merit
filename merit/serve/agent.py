@@ -1,6 +1,7 @@
 """LaunchAgent module for managing merit serve background service on macOS."""
 
 import plistlib
+import shlex
 import shutil
 from pathlib import Path
 
@@ -52,6 +53,69 @@ def install_agent(home: Path, binary: str, port: int) -> Path:
 def uninstall_agent(home: Path) -> bool:
     """Uninstall the LaunchAgent plist file if present."""
     p = plist_path(home)
+    if p.exists():
+        p.unlink()
+        return True
+    return False
+
+
+SYNC_LABEL = "com.sammyjdev.merit-sync"
+
+
+def sync_plist_path(home: Path) -> Path:
+    return home / "Library" / "LaunchAgents" / f"{SYNC_LABEL}.plist"
+
+
+def sync_log_path(home: Path) -> Path:
+    return home / ".merit" / "sync.log"
+
+
+def render_sync_plist(
+    home: Path,
+    python: str,
+    workdir: Path,
+    interval: int = 3600,
+    mailboxes: tuple[str, ...] = (),
+) -> dict:
+    """Hourly ingest-mail job. Credentials never enter the plist: the mail
+    module falls back to the keychain (merit-imap-user / merit-imap-pass).
+    With mailboxes, one chained ingest-mail run per label (UID cursors are
+    per-mailbox)."""
+    assert Path(python).is_absolute(), f"Python path must be absolute: {python}"  # noqa: S101
+    ingest = f'{shlex.quote(python)} -c "from merit.cli import app; app()" ingest-mail'
+    if mailboxes:
+        command = " && ".join(f"{ingest} --mailbox {shlex.quote(m)}" for m in mailboxes)
+        args = ["/bin/sh", "-c", command]
+    else:
+        args = [python, "-c", "from merit.cli import app; app()", "ingest-mail"]
+    return {
+        "Label": SYNC_LABEL,
+        "ProgramArguments": args,
+        "WorkingDirectory": str(workdir),
+        "StartInterval": interval,
+        "RunAtLoad": True,
+        "StandardOutPath": str(sync_log_path(home)),
+        "StandardErrorPath": str(sync_log_path(home)),
+    }
+
+
+def install_sync_agent(
+    home: Path,
+    python: str,
+    workdir: Path,
+    interval: int = 3600,
+    mailboxes: tuple[str, ...] = (),
+) -> Path:
+    p = sync_plist_path(home)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    sync_log_path(home).parent.mkdir(parents=True, exist_ok=True)
+    with open(p, "wb") as f:
+        plistlib.dump(render_sync_plist(home, python, workdir, interval, mailboxes), f)
+    return p
+
+
+def uninstall_sync_agent(home: Path) -> bool:
+    p = sync_plist_path(home)
     if p.exists():
         p.unlink()
         return True

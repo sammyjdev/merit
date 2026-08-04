@@ -502,3 +502,58 @@ def test_ingest_alerts_second_run_adds_nothing(tmp_path):
     assert len(first) == 2
     assert second == []
     assert len(mail.queue.load_entries(queue_path)) == 2
+
+
+def test_env_config_falls_back_to_keychain(monkeypatch):
+    from merit import mail
+
+    monkeypatch.delenv("MERIT_IMAP_USER", raising=False)
+    monkeypatch.delenv("MERIT_IMAP_PASSWORD", raising=False)
+    monkeypatch.setattr(
+        mail, "_keychain",
+        {"merit-imap-user": "user@example.com", "merit-imap-pass": "s3cret"}.get,
+    )
+
+    _host, user, password, _mailbox = mail._env_config()
+
+    assert user == "user@example.com"
+    assert password == "s3cret"  # noqa: S105 - test fixture value
+
+
+def test_env_config_env_wins_over_keychain(monkeypatch):
+    from merit import mail
+
+    monkeypatch.setenv("MERIT_IMAP_USER", "env-user")
+    monkeypatch.setenv("MERIT_IMAP_PASSWORD", "env-pass")
+    monkeypatch.setattr(mail, "_keychain", lambda service: "keychain-value")
+
+    _, user, password, _ = mail._env_config()
+
+    assert user == "env-user"
+    assert password == "env-pass"  # noqa: S105 - test fixture value
+
+
+def test_env_config_still_fails_loud_without_any_source(monkeypatch):
+    from merit import mail
+
+    monkeypatch.delenv("MERIT_IMAP_USER", raising=False)
+    monkeypatch.delenv("MERIT_IMAP_PASSWORD", raising=False)
+    monkeypatch.setattr(mail, "_keychain", lambda service: None)
+
+    with pytest.raises(mail.MailError):
+        mail._env_config()
+
+
+def test_cursor_name_is_mailbox_scoped():
+    from merit.mail import cursor_name
+
+    assert cursor_name("InMail") == ".last-uid-inmail"
+    assert cursor_name("Linkedin Jobs") == ".last-uid-linkedin-jobs"
+
+
+def test_thread_id_extracted_from_body():
+    from merit.mail import thread_id
+
+    body = "Reply here:\nhttps://www.linkedin.com/messaging/thread/2-AbC123==/\nBest,"
+    assert thread_id(body) == "2-AbC123=="
+    assert thread_id("no linkedin link at all") is None

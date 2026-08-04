@@ -1,4 +1,5 @@
 """View: pipeline kanban board for MERIT serve."""
+from datetime import UTC, datetime
 from urllib.parse import parse_qsl
 
 from fastapi import APIRouter, Request
@@ -9,6 +10,10 @@ from merit.cli import _db_path
 from merit.serve import rendering
 
 router = APIRouter()
+
+# Follow-up radar: a process without any logged movement for this many days
+# is going cold and gets highlighted (owner-approved 2026-08-04).
+COLD_DAYS = 7
 
 ACTIVE_STATUS_SPECS = [
     ("found", "encontrada"),
@@ -57,9 +62,17 @@ def _parse_applications(md_text: str) -> list[dict]:
                 "company": company,
                 "status": status,
                 "updated_at": updated_at,
+                "idle_days": _idle_days(updated_at),
             }
         )
     return rows
+
+
+def _idle_days(updated_at: str) -> int | None:
+    try:
+        return max(0, (datetime.now(UTC) - datetime.fromisoformat(updated_at)).days)
+    except ValueError:
+        return None
 
 
 def _build_context(request: Request, db_path: str) -> dict:
@@ -69,6 +82,10 @@ def _build_context(request: Request, db_path: str) -> dict:
     columns = []
     for status_key, label in ACTIVE_STATUS_SPECS:
         col_apps = [a for a in apps if a["status"] == status_key]
+        # coldest first - they are the ones needing a follow-up
+        col_apps.sort(key=lambda a: -(a["idle_days"] if a["idle_days"] is not None else -1))
+        for a in col_apps:
+            a["cold"] = a["idle_days"] is not None and a["idle_days"] >= COLD_DAYS
         columns.append(
             {
                 "key": status_key,

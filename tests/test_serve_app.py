@@ -15,26 +15,26 @@ def test_bind_host_is_localhost_only():
     assert serve_app.HOST == "127.0.0.1"
 
 
-def test_root_redirects_to_fila():
+def test_root_redirects_to_vagas():
     client = _client()
     response = client.get("/", follow_redirects=False)
     assert response.status_code == 307
-    assert response.headers["location"] == "/fila"
+    assert response.headers["location"] == "/vagas"
 
 
 def test_three_views_render_with_topbar():
     client = _client()
-    for path in ("/fila", "/pipeline", "/dossie"):
+    for path in ("/vagas", "/pipeline", "/dossie"):
         response = client.get(path)
         assert response.status_code == 200, path
-        assert "1 Fila" in response.text
+        assert "1 Vagas" in response.text
         assert "2 Pipeline" in response.text
         assert "3 Dossie" in response.text
 
 
 def test_csp_and_nosniff_headers_on_every_response():
     client = _client()
-    response = client.get("/fila")
+    response = client.get("/vagas")
     assert response.headers["Content-Security-Policy"] == "default-src 'self'"
     assert response.headers["X-Content-Type-Options"] == "nosniff"
 
@@ -60,6 +60,6 @@ def test_create_app_zero_behavior_when_otel_unset(monkeypatch):
         lambda: (_ for _ in ()).throw(AssertionError("_load_otel must not be called")),
     )
 
-    response = TestClient(create_app()).get("/fila")
+    response = TestClient(create_app()).get("/vagas")
 
     assert response.status_code == 200

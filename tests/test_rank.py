@@ -225,3 +225,66 @@ def test_cli_rank_needs_no_llm_or_state_db(tmp_path, monkeypatch):
 
     assert result.exit_code == 0, result.output
     assert result.exception is None
+
+
+def test_hit_names_groups_matched_skill_names_by_status():
+    from merit.rank import hit_names
+
+    text = "We use FastAPI and REST APIs daily; PyTorch required."
+    names = hit_names(_profile(), text)
+
+    assert names["strong"] == ["FastAPI"]  # alias dedups into one skill
+    assert names["partial"] == []
+    assert names["gap"] == ["PyTorch"]
+
+
+def test_hit_names_empty_when_nothing_matches():
+    from merit.rank import hit_names
+
+    names = hit_names(_profile(), "Sales role, no tech stack.")
+
+    assert names == {"strong": [], "partial": [], "gap": []}
+
+
+def test_classify_workplace_detects_explicit_signals():
+    from merit.rank import classify_workplace
+
+    assert classify_workplace("100% remote role") == "remote"
+    assert classify_workplace("Atuacao presencial em SP") == "onsite"
+    assert classify_workplace("On-site, Sao Paulo office") == "onsite"
+    assert classify_workplace("Modelo hibrido, 2x semana") == "hybrid"
+    # hybrid postings mention the office too - hybrid wins over onsite
+    assert classify_workplace("Hybrid: 2 days on-site") == "hybrid"
+    assert classify_workplace("Great team, great pay") == "unknown"
+
+
+def test_rank_dir_rows_carry_workplace_and_age(tmp_path):
+    _write(
+        tmp_path,
+        "a.md",
+        "---\nsubject: X\ndate: Tue, 28 Jul 2026 15:37:36 +0000\n---\n# X\n\nRemote FastAPI role.",
+    )
+    _write(tmp_path, "b.md", "# Y\n\nPresencial, REST APIs.")
+
+    rows, _ = rank_dir(_profile(), tmp_path)
+    by_file = {r.file: r for r in rows}
+
+    assert by_file["a.md"].workplace == "remote"
+    assert by_file["a.md"].age_days is not None and by_file["a.md"].age_days >= 0
+    assert by_file["b.md"].workplace == "onsite"
+    assert by_file["b.md"].age_days is None
+
+
+def test_rank_dir_rows_carry_thread(tmp_path):
+    _write(
+        tmp_path,
+        "a.md",
+        "# X\n\nFastAPI. https://www.linkedin.com/messaging/thread/2-AA==/",
+    )
+    _write(tmp_path, "b.md", "# Y\n\nFastAPI, no thread link.")
+
+    rows, _ = rank_dir(_profile(), tmp_path)
+    by_file = {r.file: r for r in rows}
+
+    assert by_file["a.md"].thread == "2-AA=="
+    assert by_file["b.md"].thread is None

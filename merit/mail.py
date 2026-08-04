@@ -9,6 +9,8 @@ import imaplib
 import json
 import os
 import re
+import subprocess
+import sys
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,7 +25,8 @@ RECRUITER_DOMAIN = "linkedin.com"
 RECRUITER_SUBJECT_MARKERS = ("sent you a message", "new message from", "inmail")
 # Real InMail notifications carry the opportunity title as subject (no marker);
 # their sender is stable (operational validation 2026-07-29, 218/218 messages).
-RECRUITER_SENDERS = ("inmail-hit-reply@linkedin.com",)
+# hit-reply@ = thread replies (mailbox recon 2026-08-04: 61/400 recent).
+RECRUITER_SENDERS = ("inmail-hit-reply@linkedin.com", "hit-reply@linkedin.com")
 JOB_ALERT_SENDERS = ("jobalerts-noreply@linkedin.com",)
 JOB_ALERT_SUBJECT_MARKERS = ("and more", "new jobs", "job alert")
 SLUG_MAX = 60
@@ -69,15 +72,55 @@ def _close_quietly(conn) -> None:
         conn.logout()
 
 
+_THREAD_RE = re.compile(r"linkedin\.com/messaging/thread/([A-Za-z0-9=_-]+)")
+
+
+def thread_id(text: str) -> str | None:
+    """LinkedIn conversation id from a message body - stable per thread, the
+    join key between incoming replies and tracked applications."""
+    match = _THREAD_RE.search(text)
+    return match.group(1) if match else None
+
+
+def cursor_name(mailbox: str) -> str:
+    """UID cursors are per-mailbox (UIDs only mean something inside one
+    mailbox), so the cursor file carries the mailbox in its name."""
+    slug = re.sub(r"[^a-z0-9]+", "-", mailbox.lower()).strip("-")
+    return f".last-uid-{slug}"
+
+
+def _keychain(service: str) -> str | None:
+    """macOS keychain lookup so launchd jobs (and plain CLI runs) work with
+    no credentials in env or files. Value never gets logged or echoed."""
+    if sys.platform != "darwin":
+        return None
+    try:
+        result = subprocess.run(  # noqa: S603 - fixed binary, fixed args
+            ["/usr/bin/security", "find-generic-password", "-s", service, "-w"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    value = result.stdout.strip()
+    return value if result.returncode == 0 and value else None
+
+
 def _env_config() -> tuple[str, str, str, str]:
     host = os.environ.get("MERIT_IMAP_HOST", DEFAULT_HOST)
-    user = os.environ.get("MERIT_IMAP_USER")
-    password = os.environ.get("MERIT_IMAP_PASSWORD")
+    user = os.environ.get("MERIT_IMAP_USER") or _keychain("merit-imap-user")
+    password = os.environ.get("MERIT_IMAP_PASSWORD") or _keychain("merit-imap-pass")
     mailbox = os.environ.get("MERIT_IMAP_MAILBOX", DEFAULT_MAILBOX)
     if not user:
-        raise MailError("missing required env var MERIT_IMAP_USER")
+        raise MailError(
+            "missing credentials: set MERIT_IMAP_USER or store keychain item merit-imap-user"
+        )
     if not password:
-        raise MailError("missing required env var MERIT_IMAP_PASSWORD")
+        raise MailError(
+            "missing credentials: set MERIT_IMAP_PASSWORD or store keychain item merit-imap-pass"
+        )
     return host, user, password, mailbox
 
 
@@ -281,6 +324,64 @@ def render(msg, text: str, key: str) -> str:
         "---\n\n"
         f"{text}\n"
     )
+
+
+@dataclass(frozen=True)
+class ConversationEvent:
+    key: str
+    thread: str
+    subject: str
+    date: str
+    body: str
+
+
+def _read_seen(out_dir: Path) -> set[str]:
+    seen_path = Path(out_dir) / ".seen"
+    if not seen_path.exists():
+        return set()
+    return {line.strip() for line in seen_path.read_text().splitlines() if line.strip()}
+
+
+def mark_seen(out_dir: Path, key: str) -> None:
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    with (out_dir / ".seen").open("a", encoding="utf-8") as fh:
+        fh.write(key + "\n")
+
+
+def match_conversations(
+    raws: Iterable[bytes], thread_ids: set[str], out_dir: Path
+) -> tuple[list[ConversationEvent], list[bytes]]:
+    """Split raws into (conversation events, remaining). A conversation event
+    is a recruiter message whose body carries a thread id that is already
+    tracked - it belongs in the application's dossier, never in the vagas
+    list. Already-seen events are dropped (dedup shared with .seen)."""
+    events: list[ConversationEvent] = []
+    remaining: list[bytes] = []
+    seen = _read_seen(out_dir)
+    for raw in raws:
+        try:
+            msg = email.message_from_bytes(raw, policy=email.policy.default)
+            if is_recruiter_message(msg):
+                text = message_text(msg)
+                tid = thread_id(text or "")
+                if tid and tid in thread_ids:
+                    key = message_key(msg, raw)
+                    if key not in seen:
+                        events.append(
+                            ConversationEvent(
+                                key=key,
+                                thread=tid,
+                                subject=str(msg["Subject"] or ""),
+                                date=str(msg["Date"] or ""),
+                                body=text or "",
+                            )
+                        )
+                    continue
+        except Exception:  # noqa: S110 - malformed mail falls through to ingest's reporting
+            pass
+        remaining.append(raw)
+    return events, remaining
 
 
 def ingest_messages(raws: Iterable[bytes], out_dir: Path) -> tuple[list[Ingested], list[str]]:

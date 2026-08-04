@@ -8,6 +8,7 @@ import typer
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.types import Command
 
+from merit import mail as mail_module
 from merit import queue, track
 from merit.fetch import fetch_posting
 from merit.graph.build import build_graph
@@ -112,14 +113,54 @@ def ingest_mail(
     out_dir: str = typer.Option(str(INBOX_DIR), "--out-dir"),
     queue_path: str = typer.Option(str(queue.QUEUE_PATH), "--queue-path"),
     full: bool = typer.Option(False, "--full"),
+    mailbox: list[str] = typer.Option(  # noqa: B008 - typer reads defaults from the call
+        [], "--mailbox", help="Gmail label; repeatable with --install-agent"
+    ),
+    install_agent: bool = typer.Option(False, "--install-agent"),
+    uninstall_agent: bool = typer.Option(False, "--uninstall-agent"),
+    interval: int = typer.Option(3600, "--interval", help="Sync agent period in seconds"),
 ):
+    if install_agent and uninstall_agent:
+        typer.echo("pass exactly one of --install-agent / --uninstall-agent")
+        raise typer.Exit(1)
+
+    if install_agent:
+        from merit.serve import agent as launch_agent
+
+        written = launch_agent.install_sync_agent(
+            Path.home(),
+            python=sys.executable,
+            workdir=Path.cwd(),
+            interval=interval,
+            mailboxes=tuple(mailbox),
+        )
+        typer.echo(str(written))
+        typer.echo(f"launchctl load {written}")
+        return
+
+    if uninstall_agent:
+        from merit.serve import agent as launch_agent
+
+        if launch_agent.uninstall_sync_agent(Path.home()):
+            typer.echo("Sync LaunchAgent removed")
+        else:
+            typer.echo("No sync LaunchAgent installed")
+        return
+
+    if len(mailbox) > 1:
+        typer.echo("one --mailbox per run (multiple only with --install-agent)")
+        raise typer.Exit(1)
+    if mailbox:
+        os.environ["MERIT_IMAP_MAILBOX"] = mailbox[0]
+
     try:
         conn = connect()
     except MailError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1) from None
 
-    cursor_path = Path(out_dir) / ".last-uid"
+    active_mailbox = os.environ.get("MERIT_IMAP_MAILBOX", mail_module.DEFAULT_MAILBOX)
+    cursor_path = Path(out_dir) / mail_module.cursor_name(active_mailbox)
     if full:
         cursor_path.unlink(missing_ok=True)
     conn.merit_cursor = True
@@ -132,6 +173,23 @@ def ingest_mail(
         raise typer.Exit(1) from None
     finally:
         conn.logout()
+
+    # Replies inside already-tracked LinkedIn threads register as contact on
+    # the application's dossier instead of becoming new vagas.
+    by_thread = track.threads(_db_path())
+    events, raws = mail_module.match_conversations(raws, set(by_thread), Path(out_dir))
+    for event in events:
+        track.log(
+            _db_path(),
+            by_thread[event.thread],
+            f"[contato recebido - email] {event.subject} ({event.date})\n\n{event.body}",
+            file="thread",
+            dossier_root=_dossier_root(),
+        )
+        mail_module.mark_seen(Path(out_dir), event.key)
+    if events:
+        typer.echo(f"contatos registrados {len(events)}", err=True)
+
     ingested, skipped = ingest_messages(raws, Path(out_dir))
     queued, alert_skipped = ingest_alerts(raws, Path(queue_path))
     for item in ingested:
@@ -151,7 +209,12 @@ def queue_cmd(
     queue_path: str = typer.Option(str(queue.QUEUE_PATH), "--queue-path"),
     all_: bool = typer.Option(False, "--all"),
     profile: str = typer.Option(DEFAULT_PROFILE, "--profile"),
+    prune_days: int = typer.Option(0, "--prune-days", help="Drop entries older than N days"),
 ):
+    if prune_days:
+        removed = queue.prune(Path(queue_path), days=prune_days)
+        typer.echo(f"pruned {removed} entries older than {prune_days} days")
+        return
     entries = queue.load_entries(Path(queue_path))
     if not entries:
         typer.echo("No queued postings yet. Run `merit ingest-mail` to check for job alerts.")
@@ -169,6 +232,20 @@ def queue_cmd(
             typer.echo(f"  {e.url}")
 
     typer.echo("\nFull match requires pasting the description: merit match -")
+
+
+@track_app.command("backfill-threads")
+def track_backfill_threads():
+    filled = 0
+    for app_id, source in track.sources_without_thread(_db_path()).items():
+        path = Path(source)
+        if not path.is_file():
+            continue
+        tid = mail_module.thread_id(path.read_text(encoding="utf-8", errors="replace"))
+        if tid:
+            track.set_thread_id(_db_path(), app_id, tid)
+            filled += 1
+    typer.echo(f"thread_id preenchido em {filled} candidaturas")
 
 
 @track_app.command("add")

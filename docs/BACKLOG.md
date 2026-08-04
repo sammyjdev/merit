@@ -1,9 +1,14 @@
 # MERIT backlog and next steps
 
-Status snapshot (2026-08-01): v0.3a UI SHIPPED - merit serve (FastAPI+htmx,
-localhost-only, CSP-clean) with Fila/Pipeline/Dossie views, keyboard nav,
-LaunchAgent installer; integrated from 4 parallel executor lanes (PRs
-#18-#21) with zero merge conflicts. Previous waves: On master:
+Execution order for fresh sessions:
+`docs/superpowers/plans/2026-08-03-merit-execution-plan.md`. This file stays
+the inventory of what is open; that one decides what to do first.
+
+Status snapshot (2026-08-03): merit serve (FastAPI+htmx, localhost-only,
+CSP-clean) now carries four views - Vagas, Pipeline, Dossie, Evals - with
+keyboard nav and a LaunchAgent installer. The Fila view was replaced by the
+unified Vagas surface on 2026-08-03. Previous waves: v0.3a UI integrated from
+4 parallel executor lanes (PRs #18-#21) with zero merge conflicts. On master:
 six-node graph, CLI (match/resume/rank/queue/track/ingest-mail), security
 hardening, CI gate. Golden evaluation passed (agreement >= 80%, 29 postings /
 114 pinned verdicts). Live-validated against the owner's real mailbox:
@@ -13,6 +18,18 @@ smoke-tested end to end.
 
 ## Next in the loop
 
+- Done 2026-08-03: **triage UI wave** (nine commits, direct to master, no PR).
+  Rank view landed as a live InMail scoring surface and was then folded into
+  a single **Vagas** view answering three questions per row: origin (inmail
+  vs alerta), source-calibrated level, and pipeline state inline. Stale rows
+  (30+ days) dropped entirely; on-site and score <= 0 hidden behind ?hidden=1.
+  Dark dev-tool redesign, in-list triage, topbar badges and a keys-help
+  overlay. On the ingestion side: mailbox-scoped UID cursors with a dual-label
+  sync agent, automatic contact capture from LinkedIn thread ids with a
+  follow-up radar, and InMail rows grouped by conversation thread.
+- Note 2026-08-03: that wave shipped nine ruff violations because the gate was
+  never run before committing; fixed in a follow-up. **Run the gate before
+  committing, including for hand-work outside the loop.**
 - Done 2026-08-03: **v1.0 SEALED** - merit-graph-vs-loop benchmark run per
   frozen pre-registration (negative-flow reviewed, cross-vendor fairness
   UNFAIR->FAIR cycle): quality PARITY (delta CI [0,0], agreement 95.4%

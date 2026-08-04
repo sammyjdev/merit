@@ -376,4 +376,5 @@ def test_cli_cursor_file_lives_inside_out_dir(tmp_path, monkeypatch):
 
     runner.invoke(cli.app, ["ingest-mail", "--out-dir", str(out_dir)])
 
-    assert (out_dir / ".last-uid").exists()
+    # Cursor is mailbox-scoped since the hourly sync agent (2026-08-03).
+    assert (out_dir / ".last-uid-merit").exists()

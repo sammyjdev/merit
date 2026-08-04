@@ -1,7 +1,7 @@
 // Keyboard navigation - the whole JS surface of MERIT serve (spec: ~50 lines).
 (function () {
   "use strict";
-  var VIEWS = { "1": "/fila", "2": "/pipeline", "3": "/dossie", "4": "/evals" };
+  var VIEWS = { "1": "/vagas", "2": "/pipeline", "3": "/dossie", "4": "/evals" };
 
   function rows() { return Array.prototype.slice.call(document.querySelectorAll("[data-row]")); }
 
@@ -27,9 +27,12 @@
     if (e.key === "j") move(1);
     if (e.key === "k") move(-1);
     if (e.key === "Enter") {
+      if (e.target.matches("summary")) return; // native toggle already handles it
       var cur = selected();
       var link = cur && cur.querySelector("a[data-open]");
-      if (link) link.click();
+      if (link) { link.click(); return; }
+      var det = cur && cur.querySelector("details");
+      if (det) det.open = !det.open;
     }
     if (e.key === "?") {
       var el = document.getElementById("keys-help");

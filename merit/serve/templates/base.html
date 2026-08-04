@@ -11,8 +11,9 @@
 </head>
 <body>
 <nav class="topbar" aria-label="views">
-  <a href="/fila" class="tab {% if view == 'fila' %}active{% endif %}" data-key="1">1 Fila</a>
-  <a href="/pipeline" class="tab {% if view == 'pipeline' %}active{% endif %}" data-key="2">2 Pipeline</a>
+  <span class="wordmark">MERIT</span>
+  <a href="/vagas" class="tab {% if view == 'vagas' %}active{% endif %}" data-key="1">1 Vagas{% if nav %} ({{ nav.vagas }}){% endif %}</a>
+  <a href="/pipeline" class="tab {% if view == 'pipeline' %}active{% endif %}" data-key="2">2 Pipeline{% if nav %} ({{ nav.pipeline }}){% endif %}</a>
   <a href="/dossie" class="tab {% if view == 'dossie' %}active{% endif %}" data-key="3">3 Dossie</a>
   <a href="/evals" class="tab {% if view == 'evals' %}active{% endif %}" data-key="4">4 Evals</a>
   <span class="hint">? atalhos</span>
@@ -20,5 +21,23 @@
 <main>
 {% block content %}{% endblock %}
 </main>
+<div id="keys-help" hidden>
+  <div class="keys-panel">
+    <h2>atalhos</h2>
+    <ul>
+      <li><span class="mono">1-4</span> trocar de view</li>
+      <li><span class="mono">j / k</span> descer / subir na lista</li>
+      <li><span class="mono">Enter</span> abrir vaga selecionada</li>
+      <li><span class="mono">?</span> abrir / fechar esta ajuda</li>
+    </ul>
+    <h2>legenda</h2>
+    <ul>
+      <li><span class="lv-forte">forte</span> seu perfil cobre bem o que a vaga pede</li>
+      <li><span class="lv-medio">medio</span> cobertura parcial - vale olhar o detalhe</li>
+      <li><span class="lv-fraco">fraco</span> pouca aderencia com seu perfil</li>
+      <li><span class="chip-strong mono">F/P/L</span> no detalhe: fortes / parciais / lacunas</li>
+    </ul>
+  </div>
+</div>
 </body>
 </html>
