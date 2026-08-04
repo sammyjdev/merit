@@ -194,6 +194,11 @@ a.vaga-title:hover { color: var(--accent); text-decoration: none; }
   gap: 8px;
 }
 .pipeline-card.card-cold { border-left: 2px solid var(--mid); }
+/* Without this, dragging a card paints a text selection across it instead of
+   looking like a drag. Costs the ability to select a card's text - the title
+   is still copyable from the dossier. */
+.pipeline-card[draggable="true"] { cursor: grab; user-select: none; }
+.pipeline-card.card-dragging { opacity: 0.4; cursor: grabbing; }
 .idle-cold { color: var(--mid); }
 .pipeline-card.selected {
   box-shadow: inset 2px 0 0 var(--accent);

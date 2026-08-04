@@ -6,13 +6,16 @@
 {% else %}
   <div class="pipeline-kanban">
     {% for col in columns %}
-      <div class="pipeline-column">
+      {# `encerradas` collapses rejected+withdrawn, so its key is not a status
+         set_status would accept - it stays out of the drop contract. #}
+      <div class="pipeline-column"{% if col.key in all_statuses %} data-drop-status="{{ col.key }}"{% endif %}>
         <div class="column-header">
           <span class="column-label">{{ col.label }} ({{ col.count }})</span>
         </div>
         <div class="column-cards">
           {% for card in col.apps %}
-            <div class="pipeline-card{% if card.cold %} card-cold{% endif %}" data-row>
+            <div class="pipeline-card{% if card.cold %} card-cold{% endif %}" data-row
+                 draggable="true" data-app-id="{{ card.id }}">
               <div class="card-header">
                 <a href="/dossie/{{ card.id }}" data-open class="card-title">{{ card.title }}</a>
                 {% if card.company %}

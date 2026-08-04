@@ -18,6 +18,7 @@ COLD_DAYS = 7
 ACTIVE_STATUS_SPECS = [
     ("found", "encontrada"),
     ("queued", "na fila"),
+    ("replied", "respondida"),
     ("applied", "aplicada"),
     ("screening", "triagem"),
     ("interview", "entrevista"),
