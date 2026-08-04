@@ -1,4 +1,5 @@
 import pytest
+import typer.main
 from typer.testing import CliRunner
 
 from merit.cli import app
@@ -78,18 +79,21 @@ def test_plist_program_arguments_use_absolute_binary(tmp_path):
     assert plist["ProgramArguments"][0] == "/opt/homebrew/bin/merit"
 
 
+def _serve_option_names() -> set[str]:
+    """Read the option names off the command itself. Asserting against --help
+    text makes the check hostage to how rich decides to wrap and truncate the
+    options panel, which varies with terminal width and interpreter (it passed
+    locally and failed on CI, 2026-08-03)."""
+    serve = typer.main.get_command(app).commands["serve"]
+    return {name for param in serve.params for name in param.opts}
+
+
 def test_serve_has_no_host_option():
-    runner = CliRunner()
-    result = runner.invoke(app, ["serve", "--help"])
-    assert result.exit_code == 0
-    assert "--host" not in result.output
+    assert "--host" not in _serve_option_names()
 
 
 def test_serve_help_shows_port_option():
-    runner = CliRunner()
-    result = runner.invoke(app, ["serve", "--help"])
-    assert result.exit_code == 0
-    assert "--port" in result.output
+    assert "--port" in _serve_option_names()
 
 
 def test_serve_both_flags_errors():
